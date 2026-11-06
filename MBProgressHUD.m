@@ -74,6 +74,17 @@ static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
     return nil;
 }
 
++ (instancetype)HUDContainingView:(UIView *)view {
+    MBMainThreadAssert();
+    NSAssert(view, @"View must not be nil.");
+    for (UIView *ancestor = view; ancestor; ancestor = ancestor.superview) {
+        if ([ancestor isKindOfClass:self]) {
+            return (MBProgressHUD *)ancestor;
+        }
+    }
+    return nil;
+}
+
 #pragma mark - Lifecycle
 
 - (void)commonInit {
@@ -989,10 +1000,9 @@ static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
 }
 
 - (void)setColor:(UIColor *)color {
-    NSAssert(color, @"The color should not be nil.");
     if (color != _color && ![color isEqual:_color]) {
         _color = color;
-        [self updateViewsForColor:color];
+        self.backgroundColor = color;
     }
 }
 
@@ -1028,14 +1038,6 @@ static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
     }
 }
 
-- (void)updateViewsForColor:(UIColor *)color {
-    if (self.style == MBProgressHUDBackgroundStyleBlur) {
-        self.backgroundColor = self.color;
-    } else {
-        self.backgroundColor = self.color;
-    }
-}
-
 @end
 
 
@@ -1048,6 +1050,10 @@ static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
     if (self) {
         CALayer *layer = self.layer;
         layer.borderWidth = 1.f;
+        if (@available(iOS 17.0, tvOS 17.0, *)) {
+            [self registerForTraitChanges:UITraitCollection.systemTraitsAffectingColorAppearance
+                               withAction:@selector(updateBorderColor)];
+        }
     }
     return self;
 }
@@ -1059,6 +1065,7 @@ static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
     // Fully rounded corners
     CGFloat height = CGRectGetHeight(self.bounds);
     self.layer.cornerRadius = ceil(height / 2.f);
+    [self updateBorderColor];
 }
 
 - (CGSize)intrinsicContentSize {
@@ -1077,13 +1084,41 @@ static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
     [super setTitleColor:color forState:state];
     // Update related colors
     [self setHighlighted:self.highlighted];
-    self.layer.borderColor = color.CGColor;
 }
 
 - (void)setHighlighted:(BOOL)highlighted {
     [super setHighlighted:highlighted];
     UIColor *baseColor = [self titleColorForState:UIControlStateSelected];
     self.backgroundColor = highlighted ? [baseColor colorWithAlphaComponent:0.1f] : [UIColor clearColor];
+    [self updateBorderColor];
+}
+
+- (void)setSelected:(BOOL)selected {
+    [super setSelected:selected];
+    [self updateBorderColor];
+}
+
+- (void)setEnabled:(BOOL)enabled {
+    [super setEnabled:enabled];
+    [self updateBorderColor];
+}
+
+- (void)updateBorderColor {
+    self.layer.borderColor = [self.currentTitleColor resolvedColorWithTraitCollection:self.traitCollection].CGColor;
+}
+
+- (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
+    // iOS/tvOS 15 and 16 require the legacy callback; newer systems use trait registration.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    [super traitCollectionDidChange:previousTraitCollection];
+#pragma clang diagnostic pop
+    if (@available(iOS 17.0, tvOS 17.0, *)) {
+        return;
+    }
+    if ([self.traitCollection hasDifferentColorAppearanceComparedToTraitCollection:previousTraitCollection]) {
+        [self updateBorderColor];
+    }
 }
 
 @end

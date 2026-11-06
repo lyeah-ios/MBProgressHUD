@@ -1,5 +1,8 @@
 **Version 2.0.0** (unreleased)
 
+- Add `HUDContainingView:` to find the nearest enclosing HUD without depending on its internal view hierarchy.
+- Allow `MBBackgroundView.color` to be reset to nil, clearing its fill or custom blur tint without removing the blur effect.
+- Keep the HUD button border in sync with its current title color when control state or color appearance changes.
 - Set the version to 2.0.0 and align the Xcode projects, CocoaPods, and SwiftPM minimum deployment targets at iOS/tvOS 15.0. Explicitly support Mac Catalyst 15.0 (macOS 12.0) and retain Swift tools 5.9.
 - Point the podspec source to `https://github.com/lyeah-ios/MBProgressHUD.git` at tag `2.0.0`, with a private Specs repository as the intended distribution target.
 - Update installation instructions for the private 2.0.0 pod, local `:path` integration, the fork's Carthage/SwiftPM packages, and privacy resources, retaining the original attribution and MIT license.

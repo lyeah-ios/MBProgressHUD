@@ -128,6 +128,16 @@ NS_ASSUME_NONNULL_BEGIN
 + (nullable MBProgressHUD *)HUDForView:(UIView *)view NS_SWIFT_NAME(forView(_:));
 
 /**
+ * Returns the nearest HUD of the receiving class, starting with view itself and walking up its superviews.
+ * Unlike HUDForView:, this method does not search subviews or filter out hidden or finished HUDs.
+ * Call on the main thread. This method does not change the view hierarchy or HUD state.
+ *
+ * @param view The view whose enclosing HUD is requested. Must not be nil.
+ * @return The nearest matching HUD, or nil if no matching ancestor exists.
+ */
++ (nullable instancetype)HUDContainingView:(UIView *)view NS_SWIFT_NAME(containingView(_:));
+
+/**
  * A convenience constructor that initializes the HUD with the view's bounds. Calls the designated constructor with
  * view.bounds as the parameter.
  *
@@ -303,6 +313,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 /**
  * A button that is placed below the labels. Visible only if a target / action is added and a title is assigned..
+ * Its border follows the current title color, including control state and color appearance changes.
  */
 @property (strong, nonatomic, readonly) UIButton *button;
 
@@ -401,6 +412,7 @@ NS_ASSUME_NONNULL_BEGIN
  * The background color or the blur tint color.
  *
  * Defaults to nil.
+ * Setting nil clears the fill color in solid mode or the custom tint in blur mode, preserving the blur effect.
  */
 @property (nonatomic, strong, nullable) UIColor *color;
 

@@ -31,6 +31,12 @@ MBTestHUDIsHiden(hud, rootView); \
 XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 } while (0)
 
+@interface MBTestHUD : MBProgressHUD
+@end
+
+@implementation MBTestHUD
+@end
+
 @interface HudTests : XCTestCase <MBProgressHUDDelegate>
 
 @property (nonatomic) XCTestExpectation *hideExpectation;
@@ -72,6 +78,34 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 }
 
 #pragma mark - Convenience
+
+- (void)testHUDContainingView {
+    UIView *container = [UIView new];
+    MBTestHUD *outerHUD = [[MBTestHUD alloc] initWithView:container];
+    [container addSubview:outerHUD];
+    MBProgressHUD *innerHUD = [[MBProgressHUD alloc] initWithView:outerHUD];
+    [outerHUD addSubview:innerHUD];
+    innerHUD.mode = MBProgressHUDModeCustomView;
+    UIView *content = [UIView new];
+    UIView *nestedContent = [UIView new];
+    [content addSubview:nestedContent];
+    innerHUD.customView = content;
+
+    XCTAssertEqual([MBProgressHUD HUDContainingView:innerHUD], innerHUD);
+    XCTAssertEqual([MBProgressHUD HUDContainingView:innerHUD.bezelView], innerHUD);
+    XCTAssertEqual([MBProgressHUD HUDContainingView:nestedContent], innerHUD);
+    XCTAssertEqual([MBTestHUD HUDContainingView:nestedContent], outerHUD);
+    XCTAssertNil([MBProgressHUD HUDContainingView:container]);
+    XCTAssertNil([MBProgressHUD HUDContainingView:[UIView new]]);
+
+    [innerHUD showAnimated:NO];
+    [innerHUD hideAnimated:NO];
+    XCTAssertNil([MBProgressHUD HUDForView:outerHUD]);
+    XCTAssertEqual([MBProgressHUD HUDContainingView:nestedContent], innerHUD, @"Containment does not filter finished HUDs.");
+    [innerHUD removeFromSuperview];
+    XCTAssertNil([MBTestHUD HUDContainingView:nestedContent]);
+    XCTAssertEqual([MBProgressHUD HUDContainingView:nestedContent], innerHUD);
+}
 
 - (void)testNonAnimatedConvenienceHUDPresentation {
     UIView *rootView = [self hostRootView];
@@ -290,6 +324,88 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 }
 
 #pragma mark - Customization
+
+- (void)testBackgroundColorCanBeCleared {
+    MBBackgroundView *background = [MBBackgroundView new];
+    XCTAssertNil(background.color);
+    XCTAssertNil(background.backgroundColor);
+    UIBlurEffectStyle blurStyle = background.blurEffectStyle;
+
+    for (NSNumber *value in @[@(MBProgressHUDBackgroundStyleBlur), @(MBProgressHUDBackgroundStyleSolidColor)]) {
+        background.style = value.integerValue;
+        background.color = UIColor.redColor;
+        XCTAssertEqualObjects(background.backgroundColor, UIColor.redColor);
+        UIVisualEffectView *effect = (UIVisualEffectView *)[self view:background firstSubviewOfClass:UIVisualEffectView.class];
+        background.color = nil;
+        XCTAssertNil(background.color);
+        XCTAssertNil(background.backgroundColor);
+        XCTAssertEqual(background.blurEffectStyle, blurStyle);
+        if (background.style == MBProgressHUDBackgroundStyleBlur) {
+            XCTAssertNotNil(effect.effect);
+            XCTAssertEqual([self view:background firstSubviewOfClass:UIVisualEffectView.class], effect);
+        } else {
+            XCTAssertNil(effect);
+        }
+    }
+
+    background.color = UIColor.blueColor;
+    background.style = MBProgressHUDBackgroundStyleBlur;
+    XCTAssertEqualObjects(background.backgroundColor, UIColor.blueColor);
+    background.color = nil;
+    background.style = MBProgressHUDBackgroundStyleSolidColor;
+    XCTAssertNil(background.backgroundColor);
+    background.style = MBProgressHUDBackgroundStyleBlur;
+    XCTAssertNil(background.backgroundColor);
+    XCTAssertNotNil([self view:background firstSubviewOfClass:UIVisualEffectView.class]);
+}
+
+- (void)testButtonBorderTracksColorAppearance {
+    UIView *rootView = [self hostRootView];
+    MBProgressHUD *hud = [MBProgressHUD showHUDAddedTo:rootView animated:NO];
+    [self addTeardownBlock:^{ [hud hideAnimated:NO]; }];
+    UIButton *button = hud.button;
+    UIColor *dynamicColor = [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *traits) {
+        return traits.userInterfaceStyle == UIUserInterfaceStyleDark ? UIColor.whiteColor : UIColor.blackColor;
+    }];
+    [button setTitleColor:dynamicColor forState:UIControlStateNormal];
+
+    for (NSNumber *value in @[@(UIUserInterfaceStyleLight), @(UIUserInterfaceStyleDark), @(UIUserInterfaceStyleLight)]) {
+        UIUserInterfaceStyle style = value.integerValue;
+        UIColor *expected = style == UIUserInterfaceStyleDark ? UIColor.whiteColor : UIColor.blackColor;
+        button.overrideUserInterfaceStyle = style;
+        NSPredicate *updated = [NSPredicate predicateWithBlock:^BOOL(id object, NSDictionary *bindings) {
+            return button.traitCollection.userInterfaceStyle == style && button.layer.borderColor &&
+                CGColorEqualToColor(button.layer.borderColor, expected.CGColor);
+        }];
+        XCTNSPredicateExpectation *expectation = [[XCTNSPredicateExpectation alloc] initWithPredicate:updated object:nil];
+        XCTAssertEqual([XCTWaiter waitForExpectations:@[expectation] timeout:2.f], XCTWaiterResultCompleted);
+    }
+
+    [button setTitleColor:UIColor.redColor forState:UIControlStateNormal];
+    button.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
+    [button layoutIfNeeded];
+    XCTAssertTrue(CGColorEqualToColor(button.layer.borderColor, UIColor.redColor.CGColor));
+}
+
+- (void)testButtonBorderTracksControlState {
+    MBProgressHUD *hud = [MBProgressHUD new];
+    UIButton *button = hud.button;
+    [button setTitleColor:UIColor.redColor forState:UIControlStateNormal];
+    [button setTitleColor:UIColor.blueColor forState:UIControlStateSelected];
+    [button setTitleColor:UIColor.greenColor forState:UIControlStateHighlighted];
+    [button setTitleColor:UIColor.grayColor forState:UIControlStateDisabled];
+    XCTAssertTrue(CGColorEqualToColor(button.layer.borderColor, UIColor.redColor.CGColor), @"Inactive state colors must not replace the border.");
+    button.selected = YES;
+    XCTAssertTrue(CGColorEqualToColor(button.layer.borderColor, UIColor.blueColor.CGColor));
+    button.selected = NO;
+    button.highlighted = YES;
+    XCTAssertTrue(CGColorEqualToColor(button.layer.borderColor, UIColor.greenColor.CGColor));
+    button.highlighted = NO;
+    button.enabled = NO;
+    XCTAssertTrue(CGColorEqualToColor(button.layer.borderColor, UIColor.grayColor.CGColor));
+    button.enabled = YES;
+    XCTAssertTrue(CGColorEqualToColor(button.layer.borderColor, UIColor.redColor.CGColor));
+}
 
 - (void)testEffectViewOrderAfterSettingBlurStyle {
     UIView *rootView = [self hostRootView];
