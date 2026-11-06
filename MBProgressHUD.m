@@ -252,7 +252,12 @@ static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
     [self updateBezelMotionEffects];
 
     if (animated) {
-        [self animateIn:YES withType:self.animationType completion:NULL];
+        MBProgressHUDCustomAnimationBlock animation = self.customShowAnimationBlock;
+        if (animation) {
+            animation(^(BOOL finished) {}, self);
+        } else {
+            [self animateIn:YES withType:self.animationType completion:NULL];
+        }
     } else {
         self.bezelView.alpha = 1.f;
         self.backgroundView.alpha = 1.f;
@@ -268,9 +273,16 @@ static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
 
     if (animated && self.showStarted) {
         self.showStarted = nil;
-        [self animateIn:NO withType:self.animationType completion:^(BOOL finished) {
-            [self done];
-        }];
+        MBProgressHUDCustomAnimationBlock animation = self.customHideAnimationBlock;
+        if (animation) {
+            animation(^(BOOL finished) {
+                [self done];
+            }, self);
+        } else {
+            [self animateIn:NO withType:self.animationType completion:^(BOOL finished) {
+                [self done];
+            }];
+        }
     } else {
         self.showStarted = nil;
         self.bezelView.alpha = 0.f;

@@ -4,7 +4,7 @@
 
 `MBProgressHUD` is an iOS drop-in class that displays a translucent HUD with an indicator and/or labels while work is being done in a background thread. The HUD is meant as a replacement for the undocumented, private `UIKit` `UIProgressHUD` with some additional features.
 
-This repository is an Objective-C fork of [Matej Bukovinski's MBProgressHUD](https://github.com/matej/MBProgressHUD), targeting **2.0.0 (unreleased)**. It retains the original attribution and MIT license. Configuration and validation are local; the version tag and private Specs release have not been published.
+This repository is an Objective-C fork of [Matej Bukovinski's MBProgressHUD](https://github.com/matej/MBProgressHUD), version **2.0.0**. It retains the original attribution and MIT license.
 
 [![](https://raw.githubusercontent.com/wiki/matej/MBProgressHUD/Screenshots/1-small.png)](https://raw.githubusercontent.com/wiki/matej/MBProgressHUD/Screenshots/1.png)
 [![](https://raw.githubusercontent.com/wiki/matej/MBProgressHUD/Screenshots/2-small.png)](https://raw.githubusercontent.com/wiki/matej/MBProgressHUD/Screenshots/2.png)
@@ -32,14 +32,11 @@ The Xcode projects, podspec, and SwiftPM manifest use the same iOS/tvOS 15.0 min
 
 [CocoaPods](http://cocoapods.org) is the recommended way to add MBProgressHUD to your project.
 
-Version 2.0.0 is intended for a private Specs repository. Obtain its URL through your internal distribution channel. The podspec points to `https://github.com/lyeah-ios/MBProgressHUD.git` at tag `2.0.0`; this source repository is separate from the Specs repository.
+Version 2.0.0 is distributed for CocoaPods integration through a private Specs source only; it is not published to the public CocoaPods Specs repository. Configure the appropriate private source in your Podfile or CocoaPods environment before installing.
 
-The following Podfile is for use after 2.0.0 is published; the version may not resolve yet. Replace `<PRIVATE_SPECS_URL>` locally with the private Specs URL you have access to. Keep the public source if your project also has public dependencies:
+After configuring your private source, add the dependency to your application target:
 
 ```ruby
-source '<PRIVATE_SPECS_URL>'
-source 'https://cdn.cocoapods.org/'
-
 platform :ios, '15.0'
 
 target 'YourApp' do
@@ -55,7 +52,7 @@ For local validation, replace the version dependency with a `:path` dependency p
 pod 'MBProgressHUD', :path => '../MBProgressHUD'
 ```
 
-The `:path` dependency uses the local 2.0.0 podspec and source files. A successful local integration does not verify installation from the remote tag or private Specs repository.
+The `:path` dependency uses the local 2.0.0 podspec and source files. A successful local integration does not verify installation from the remote tag or a Specs source.
 
 ### Carthage
 
@@ -122,6 +119,19 @@ MBProgressHUD *hud = [MBProgressHUD HUDContainingView:customContentView];
 ```
 
 This differs from `HUDForView:`, which searches a container's direct subviews for its top-most unfinished HUD. Calling `HUDContainingView:` on a HUD subclass restricts matches to that subclass and its subclasses.
+
+### Custom animations
+
+Set `customShowAnimationBlock` and/or `customHideAnimationBlock` before showing the HUD to replace the corresponding animated transition. A nil property uses `animationType`; non-animated operations skip custom animations. Configure the bezel and background views in the block, and call the supplied completion exactly once on the main thread when the animation finishes or is interrupted. Restore any custom view transforms as needed when reusing the HUD. A hide animation that never calls completion prevents HUD cleanup and hide notifications. Use the HUD argument or weak references to avoid retain cycles.
+
+```objective-c
+hud.customHideAnimationBlock = ^(void (^completion)(BOOL), MBProgressHUD *target) {
+    [UIView animateWithDuration:0.3 animations:^{
+        target.bezelView.alpha = 0;
+        target.backgroundView.alpha = 0;
+    } completion:completion];
+};
+```
 
 ### Background taps
 

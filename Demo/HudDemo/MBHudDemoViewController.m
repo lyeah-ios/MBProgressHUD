@@ -61,11 +61,37 @@
         [MBExample exampleWithTitle:@"Determinate with NSProgress" selector:@selector(determinateNSProgressExample)],
         [MBExample exampleWithTitle:@"Dim background" selector:@selector(dimBackgroundExample)],
         [MBExample exampleWithTitle:@"Background tap" selector:@selector(backgroundTapExample)],
+        [MBExample exampleWithTitle:@"Custom animation" selector:@selector(customAnimationExample)],
         [MBExample exampleWithTitle:@"Colored" selector:@selector(colorExample)]]
       ];
 }
 
 #pragma mark - Examples
+
+- (void)customAnimationExample {
+    UIView *host = self.navigationController.view;
+    MBProgressHUD *hud = [[MBProgressHUD alloc] initWithView:host];
+    hud.removeFromSuperViewOnHide = YES;
+    hud.label.text = @"Custom animation";
+    hud.customShowAnimationBlock = ^(void (^completion)(BOOL), MBProgressHUD *target) {
+        target.bezelView.transform = CGAffineTransformMakeTranslation(0, 40);
+        [UIView animateWithDuration:0.3 animations:^{
+            target.bezelView.transform = CGAffineTransformIdentity;
+            target.bezelView.alpha = 1;
+            target.backgroundView.alpha = 1;
+        } completion:completion];
+    };
+    hud.customHideAnimationBlock = ^(void (^completion)(BOOL), MBProgressHUD *target) {
+        [UIView animateWithDuration:0.3 animations:^{
+            target.bezelView.transform = CGAffineTransformMakeTranslation(0, 40);
+            target.bezelView.alpha = 0;
+            target.backgroundView.alpha = 0;
+        } completion:completion];
+    };
+    [host addSubview:hud];
+    [hud showAnimated:YES];
+    [hud hideAnimated:YES afterDelay:2];
+}
 
 - (void)backgroundTapExample {
     MBProgressHUD *hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];

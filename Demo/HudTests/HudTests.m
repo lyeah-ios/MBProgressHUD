@@ -93,6 +93,48 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 
 @implementation HudTests
 
+- (void)testCustomAnimationsAndReuse {
+    UIView *host = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 480)];
+    MBProgressHUD *hud = [[MBProgressHUD alloc] initWithView:host];
+    [host addSubview:hud];
+    __block NSUInteger shows = 0, hides = 0, completions = 0;
+    __block void (^finishHide)(BOOL) = nil;
+    __weak MBProgressHUD *weakHUD = hud;
+    hud.customShowAnimationBlock = ^(void (^completion)(BOOL), MBProgressHUD *target) {
+        XCTAssertEqual(target, weakHUD);
+        shows++;
+        target.bezelView.alpha = 1;
+        target.backgroundView.alpha = 1;
+        completion(YES);
+    };
+    hud.customHideAnimationBlock = ^(void (^completion)(BOOL), MBProgressHUD *target) {
+        XCTAssertEqual(target, weakHUD);
+        hides++;
+        finishHide = [completion copy];
+    };
+    hud.completionBlock = ^{ completions++; };
+    [hud showAnimated:NO];
+    XCTAssertEqual(shows, 0u);
+    [hud hideAnimated:NO];
+    XCTAssertEqual(hides, 0u);
+    XCTAssertEqual(completions, 1u);
+    [hud showAnimated:YES];
+    XCTAssertEqual(shows, 1u);
+    [hud hideAnimated:YES];
+    XCTAssertEqual(hides, 1u);
+    XCTAssertEqual(completions, 1u);
+    finishHide(YES);
+    XCTAssertEqual(completions, 2u);
+    XCTAssertEqual(hud.alpha, 0.f);
+    [hud showAnimated:YES];
+    hud.customHideAnimationBlock = ^(void (^completion)(BOOL), MBProgressHUD *target) { completion(NO); };
+    [hud hideAnimated:YES];
+    XCTAssertEqual(completions, 3u);
+    XCTAssertEqual(hud.alpha, 0.f);
+    hud.completionBlock = nil;
+    [hud removeFromSuperview];
+}
+
 #pragma mark - Initialization
 
 - (void)testInitializers {

@@ -76,6 +76,8 @@ typedef void (^MBProgressHUDCompletionBlock)(void);
 /// The tapped HUD instance is passed as the sole argument.
 typedef void (^MBProgressHUDBackgroundTapHandler)(MBProgressHUD * _Nonnull hud);
 
+typedef void (^MBProgressHUDCustomAnimationBlock)(void (^ _Nonnull completion)(BOOL finished), __kindof MBProgressHUD * _Nonnull HUD);
+
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -256,6 +258,17 @@ NS_ASSUME_NONNULL_BEGIN
  * The animation type that should be used when the HUD is shown and hidden.
  */
 @property (assign, nonatomic) MBProgressHUDAnimation animationType UI_APPEARANCE_SELECTOR;
+
+/**
+ * Optional custom animations for animated show and hide operations. Defaults to nil, using animationType.
+ * The block configures and animates the bezel and background views and must call completion on the main
+ * thread exactly once when it finishes or is interrupted. Failing to complete a hide prevents cleanup and notifications.
+ * Non-animated operations skip these blocks.
+ * Configure and execute animations on the main thread. Avoid retaining the HUD or its owner in the block;
+ * use the supplied HUD argument or a weak reference instead.
+ */
+@property (copy, nonatomic, nullable) MBProgressHUDCustomAnimationBlock customShowAnimationBlock;
+@property (copy, nonatomic, nullable) MBProgressHUDCustomAnimationBlock customHideAnimationBlock;
 
 /**
  * The bezel offset relative to the center of the view. You can use MBProgressMaxOffset
