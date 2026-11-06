@@ -7,13 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A12000000000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A12000000000000000000003 /* PrivacyInfo.xcprivacy */; };
-		A12000000000000000000002 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A12000000000000000000003 /* PrivacyInfo.xcprivacy */; };
-		A12000000000000000000004 /* MBHudDemoSceneDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = A12000000000000000000005 /* MBHudDemoSceneDelegate.m */; };
-		A12000000000000000000007 /* MBHudDemoTVSceneDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = A12000000000000000000008 /* MBHudDemoTVSceneDelegate.m */; };
 		1D60589F0D05DD5A006BFB54 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D30AB110D05D00D00671497 /* Foundation.framework */; };
 		1DF5F4E00D08C38300B7A737 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DF5F4DF0D08C38300B7A737 /* UIKit.framework */; };
 		5BE141EE1CD8C33D0023BC9E /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5BE141ED1CD8C33D0023BC9E /* QuartzCore.framework */; };
+		A12000000000000000000001 /* ../PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A12000000000000000000003 /* ../PrivacyInfo.xcprivacy */; };
+		A12000000000000000000002 /* ../PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A12000000000000000000003 /* ../PrivacyInfo.xcprivacy */; };
+		A12000000000000000000004 /* MBHudDemoSceneDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = A12000000000000000000005 /* MBHudDemoSceneDelegate.m */; };
+		A12000000000000000000007 /* MBHudDemoTVSceneDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = A12000000000000000000008 /* MBHudDemoTVSceneDelegate.m */; };
 		D22F7D810F85241C00550BB3 /* MBProgressHUD.m in Sources */ = {isa = PBXBuildFile; fileRef = D22F7D800F85241C00550BB3 /* MBProgressHUD.m */; };
 		D274948B1D3B74AA00ABEB66 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D274948A1D3B74AA00ABEB66 /* Images.xcassets */; };
 		D27F18451D3B5878009D7482 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = D27F18441D3B5878009D7482 /* main.m */; };
@@ -43,15 +43,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		A12000000000000000000003 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = ../PrivacyInfo.xcprivacy; sourceTree = SOURCE_ROOT; };
-		A12000000000000000000005 /* MBHudDemoSceneDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MBHudDemoSceneDelegate.m; sourceTree = "<group>"; };
-		A12000000000000000000006 /* MBHudDemoSceneDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MBHudDemoSceneDelegate.h; sourceTree = "<group>"; };
-		A12000000000000000000008 /* MBHudDemoTVSceneDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MBHudDemoTVSceneDelegate.m; sourceTree = "<group>"; };
-		A12000000000000000000009 /* MBHudDemoTVSceneDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MBHudDemoTVSceneDelegate.h; sourceTree = "<group>"; };
 		1D30AB110D05D00D00671497 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		1D6058910D05DD3D006BFB54 /* HudDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HudDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DF5F4DF0D08C38300B7A737 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		5BE141ED1CD8C33D0023BC9E /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		A12000000000000000000003 /* ../PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = ../PrivacyInfo.xcprivacy; sourceTree = SOURCE_ROOT; };
+		A12000000000000000000005 /* MBHudDemoSceneDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MBHudDemoSceneDelegate.m; sourceTree = "<group>"; };
+		A12000000000000000000006 /* MBHudDemoSceneDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MBHudDemoSceneDelegate.h; sourceTree = "<group>"; };
+		A12000000000000000000008 /* MBHudDemoTVSceneDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MBHudDemoTVSceneDelegate.m; sourceTree = "<group>"; };
+		A12000000000000000000009 /* MBHudDemoTVSceneDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MBHudDemoTVSceneDelegate.h; sourceTree = "<group>"; };
 		D22F7D7F0F85241C00550BB3 /* MBProgressHUD.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MBProgressHUD.h; path = ../MBProgressHUD.h; sourceTree = SOURCE_ROOT; };
 		D22F7D800F85241C00550BB3 /* MBProgressHUD.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = MBProgressHUD.m; path = ../MBProgressHUD.m; sourceTree = "<group>"; };
 		D274948A1D3B74AA00ABEB66 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
@@ -229,7 +229,7 @@
 			children = (
 				D22F7D7F0F85241C00550BB3 /* MBProgressHUD.h */,
 				D22F7D800F85241C00550BB3 /* MBProgressHUD.m */,
-				A12000000000000000000003 /* PrivacyInfo.xcprivacy */,
+				A12000000000000000000003 /* ../PrivacyInfo.xcprivacy */,
 			);
 			name = MBProgressHUD;
 			sourceTree = "<group>";
@@ -341,7 +341,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A12000000000000000000001 /* PrivacyInfo.xcprivacy in Resources */,
+				A12000000000000000000001 /* ../PrivacyInfo.xcprivacy in Resources */,
 				D27F18641D3B5E21009D7482 /* Main.storyboard in Resources */,
 				D2EEB3811B55967200F59EC1 /* Images.xcassets in Resources */,
 				D27F18631D3B5E21009D7482 /* Launch.storyboard in Resources */,
@@ -352,7 +352,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A12000000000000000000002 /* PrivacyInfo.xcprivacy in Resources */,
+				A12000000000000000000002 /* ../PrivacyInfo.xcprivacy in Resources */,
 				D27F184E1D3B5878009D7482 /* Main.storyboard in Resources */,
 				D274948B1D3B74AA00ABEB66 /* Images.xcassets in Resources */,
 				D2D75D5323A8193100485497 /* Launch.storyboard in Resources */,
