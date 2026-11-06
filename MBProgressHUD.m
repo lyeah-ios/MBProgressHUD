@@ -16,6 +16,8 @@ static const CGFloat MBDefaultLabelFontSize = 16.f;
 static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
 
 
+@class MBBackgroundTapTarget;
+
 @interface MBProgressHUD ()
 
 @property (nonatomic, assign) BOOL useAnimation;
@@ -31,7 +33,36 @@ static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
 @property (nonatomic, weak) NSTimer *minShowTimer;
 @property (nonatomic, weak) NSTimer *hideDelayTimer;
 @property (nonatomic, weak) CADisplayLink *progressObjectDisplayLink;
+@property (nonatomic, strong) UITapGestureRecognizer *backgroundTapRecognizer;
+@property (nonatomic, strong) MBBackgroundTapTarget *backgroundTapTarget;
 
+- (BOOL)mb_isBackgroundTapPoint:(CGPoint)point;
+- (void)mb_handleBackgroundTap:(UITapGestureRecognizer *)recognizer;
+
+@end
+
+@interface MBBackgroundTapTarget : NSObject <UIGestureRecognizerDelegate>
+@property (nonatomic, weak) MBProgressHUD *hud;
+- (void)handleTap:(UITapGestureRecognizer *)recognizer;
+@end
+
+@implementation MBBackgroundTapTarget
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch {
+    MBProgressHUD *hud = self.hud;
+    if (!hud || gestureRecognizer != hud.backgroundTapRecognizer ||
+        ![touch.view isDescendantOfView:hud.backgroundView]) {
+        return NO;
+    }
+    return [hud mb_isBackgroundTapPoint:[touch locationInView:hud.backgroundView]];
+}
+
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceivePress:(UIPress *)press {
+    return NO;
+}
+
+- (void)handleTap:(UITapGestureRecognizer *)recognizer {
+    [self.hud mb_handleBackgroundTap:recognizer];
+}
 @end
 
 
@@ -611,6 +642,52 @@ static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
 }
 
 #pragma mark - Properties
+
+- (void)setBackgroundTapHandler:(MBProgressHUDBackgroundTapHandler)backgroundTapHandler {
+    MBMainThreadAssert();
+    _backgroundTapHandler = [backgroundTapHandler copy];
+    [self mb_updateBackgroundTapRecognizer];
+}
+
+- (void)mb_updateBackgroundTapRecognizer {
+    if (self.backgroundTapHandler) {
+        if (!self.backgroundTapRecognizer) {
+            MBBackgroundTapTarget *target = [MBBackgroundTapTarget new];
+            target.hud = self;
+            self.backgroundTapTarget = target;
+            UITapGestureRecognizer *recognizer = [[UITapGestureRecognizer alloc] initWithTarget:target action:@selector(handleTap:)];
+            recognizer.delegate = target;
+            [self.backgroundView addGestureRecognizer:recognizer];
+            self.backgroundTapRecognizer = recognizer;
+        }
+    } else if (self.backgroundTapRecognizer) {
+        [self.backgroundTapRecognizer.view removeGestureRecognizer:self.backgroundTapRecognizer];
+        self.backgroundTapRecognizer = nil;
+        self.backgroundTapTarget = nil;
+    }
+}
+
+- (BOOL)mb_isBackgroundTapPoint:(CGPoint)point {
+    CGPoint bezelPoint = [self.backgroundView convertPoint:point toView:self.bezelView];
+    return CGRectContainsPoint(self.backgroundView.bounds, point) && !CGRectContainsPoint(self.bezelView.bounds, bezelPoint);
+}
+
+- (void)mb_handleBackgroundTap:(UITapGestureRecognizer *)recognizer {
+    MBMainThreadAssert();
+    if (recognizer != self.backgroundTapRecognizer || recognizer.view != self.backgroundView ||
+        self.backgroundView.superview != self || recognizer.state != UIGestureRecognizerStateRecognized ||
+        !self.superview || !self.showStarted || self.hasFinished || self.graceTimer.isValid ||
+        self.hidden || self.alpha <= 0.f || !self.userInteractionEnabled ||
+        self.backgroundView.hidden || self.backgroundView.alpha <= 0.f || !self.backgroundView.userInteractionEnabled ||
+        ![self mb_isBackgroundTapPoint:[recognizer locationInView:self.backgroundView]]) {
+        return;
+    }
+
+    MBProgressHUDBackgroundTapHandler handler = self.backgroundTapHandler;
+    if (handler) {
+        handler(self);
+    }
+}
 
 - (void)setMode:(MBProgressHUDMode)mode {
     if (mode != _mode) {

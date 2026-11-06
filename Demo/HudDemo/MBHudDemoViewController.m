@@ -60,11 +60,26 @@
         [MBExample exampleWithTitle:@"NSURLSession" selector:@selector(networkingExample)],
         [MBExample exampleWithTitle:@"Determinate with NSProgress" selector:@selector(determinateNSProgressExample)],
         [MBExample exampleWithTitle:@"Dim background" selector:@selector(dimBackgroundExample)],
+        [MBExample exampleWithTitle:@"Background tap" selector:@selector(backgroundTapExample)],
         [MBExample exampleWithTitle:@"Colored" selector:@selector(colorExample)]]
       ];
 }
 
 #pragma mark - Examples
+
+- (void)backgroundTapExample {
+    MBProgressHUD *hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
+    hud.label.text = NSLocalizedString(@"Tap the background to dismiss", @"HUD background tap title");
+    hud.backgroundTapHandler = ^(MBProgressHUD *tappedHUD) {
+        [tappedHUD hideAnimated:YES];
+    };
+    [hud.button setTitle:NSLocalizedString(@"Close", @"Close HUD button title") forState:UIControlStateNormal];
+    [hud.button addTarget:self action:@selector(closeBackgroundTapExample:) forControlEvents:UIControlEventTouchUpInside];
+}
+
+- (void)closeBackgroundTapExample:(UIButton *)sender {
+    [[MBProgressHUD HUDContainingView:sender] hideAnimated:YES];
+}
 
 - (void)indeterminateExample {
     // Show the HUD on the root view (self.view is a scrollable table view and thus not suitable,

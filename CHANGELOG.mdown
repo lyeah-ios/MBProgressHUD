@@ -1,5 +1,6 @@
 **Version 2.0.0** (unreleased)
 
+- Add an opt-in background tap handler and a demo that hides the HUD from the callback. Remote-control presses on tvOS are not treated as background taps.
 - Add `HUDContainingView:` to find the nearest enclosing HUD without depending on its internal view hierarchy.
 - Allow `MBBackgroundView.color` to be reset to nil, clearing its fill or custom blur tint without removing the blur effect.
 - Keep the HUD button border in sync with its current title color when control state or color appearance changes.

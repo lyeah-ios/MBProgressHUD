@@ -31,6 +31,7 @@
 #import <CoreGraphics/CoreGraphics.h>
 
 @class MBBackgroundView;
+@class MBProgressHUD;
 @protocol MBProgressHUDDelegate;
 
 
@@ -70,6 +71,10 @@ typedef NS_ENUM(NSInteger, MBProgressHUDBackgroundStyle) {
 };
 
 typedef void (^MBProgressHUDCompletionBlock)(void);
+
+/// Called when the user taps the background area of a HUD that has background-tap handling enabled.
+/// The tapped HUD instance is passed as the sole argument.
+typedef void (^MBProgressHUDBackgroundTapHandler)(MBProgressHUD * _Nonnull hud);
 
 
 NS_ASSUME_NONNULL_BEGIN
@@ -216,6 +221,22 @@ NS_ASSUME_NONNULL_BEGIN
  * Defaults to NO.
  */
 @property (assign, nonatomic) BOOL removeFromSuperViewOnHide;
+
+/**
+ * Called each time the user taps the background area (outside the bezel).
+ * The bezel and its content are excluded regardless of their userInteractionEnabled state.
+ * The HUD must be displayed and not already requested to hide. Remote-control presses are excluded.
+ * Setting userInteractionEnabled = NO on the HUD prevents touches from reaching its subviews.
+ * Defaults to nil, which disables the internal tap recognizer. This property may be changed at any time;
+ * the block active when the tap is recognized is called on the main thread with the HUD as its argument.
+ * Configure it on the main thread. The block is retained when the HUD is hidden and reused.
+ * Multiple taps can invoke the block, including while a delayed hide has not yet been requested.
+ * The HUD does not automatically hide or cancel the underlying task or progress. The block may call
+ * hideAnimated: on its argument; use completionBlock or the delegate to observe dismissal completion.
+ * @warning To avoid a retain cycle, do not strongly capture the HUD or the object that owns it.
+ *   Use the block argument or a weak reference instead.
+ */
+@property (copy, nonatomic, nullable) MBProgressHUDBackgroundTapHandler backgroundTapHandler;
 
 /// @name Appearance
 

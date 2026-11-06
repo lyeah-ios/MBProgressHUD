@@ -123,6 +123,25 @@ MBProgressHUD *hud = [MBProgressHUD HUDContainingView:customContentView];
 
 This differs from `HUDForView:`, which searches a container's direct subviews for its top-most unfinished HUD. Calling `HUDContainingView:` on a HUD subclass restricts matches to that subclass and its subclasses.
 
+### Background taps
+
+Configure `backgroundTapHandler` (default `nil`) on the main thread. A displayed HUD accepts taps outside the entire bezel, not on the bezel or its content, and only until hiding has been requested. When the handler is nil, no internal tap recognizer is installed and the HUD still blocks input; set `userInteractionEnabled` to `NO` for passthrough. Each independent tap invokes the handler without automatically hiding the HUD. The callback is not a hide completion: use `completionBlock` or the delegate for completion.
+
+```objective-c
+MBProgressHUD *hud = [MBProgressHUD showHUDAddedTo:self.view animated:YES];
+__weak typeof(self) weakSelf = self;
+hud.backgroundTapHandler = ^(MBProgressHUD *tappedHUD) {
+    [tappedHUD hideAnimated:YES];
+    [weakSelf backgroundWasTapped];
+};
+```
+
+Hiding respects `minShowTime` and `removeFromSuperViewOnHide`, and does not cancel the underlying task or `NSProgress`. Settings persist when a HUD is hidden and reused. The handler runs on the main thread; use its HUD argument or weak references instead of strongly capturing the HUD or its owner. Changes take effect on the next tap. On tvOS, remote-control presses are not background taps; no Select or Menu dismissal is provided.
+
+External gesture recognizers use UIKit's default gesture arbitration with the internal recognizer; recognition is not guaranteed to be simultaneous. Configure your own recognizer's delegate or failure requirements as needed.
+
+Consumers migrating an existing wrapper should remove its background gesture to avoid duplicate actions.
+
 Set `hud.bezelView.color = nil` to clear a custom background fill or blur tint. In blur mode, the blur effect remains. The HUD button's border follows its current title color, including dynamic light/dark colors and control state changes.
 
 If you need to configure the HUD you can do this by using the MBProgressHUD reference that showHUDAddedTo:animated: returns.

@@ -37,6 +37,52 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 @implementation MBTestHUD
 @end
 
+@interface MBProgressHUD (BackgroundTapTests)
+- (void)mb_handleBackgroundTap:(UITapGestureRecognizer *)recognizer;
+- (BOOL)mb_isBackgroundTapPoint:(CGPoint)point;
+@end
+
+@interface MBTestConflictingHUD : MBProgressHUD <UIGestureRecognizerDelegate>
+@property (nonatomic) NSUInteger actionCalls;
+@property (nonatomic) NSUInteger delegateCalls;
+@end
+
+@implementation MBTestConflictingHUD
+- (void)handleBackgroundTap:(UITapGestureRecognizer *)recognizer { self.actionCalls++; }
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)recognizer shouldReceiveTouch:(UITouch *)touch {
+    self.delegateCalls++;
+    return NO;
+}
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)recognizer shouldReceivePress:(UIPress *)press {
+    self.delegateCalls++;
+    return YES;
+}
+@end
+
+@interface NSObject (MBBackgroundTapTargetTests)
+- (void)handleTap:(UITapGestureRecognizer *)recognizer;
+@end
+
+@interface MBTestTapRecognizer : UITapGestureRecognizer
+@property (nonatomic) UIGestureRecognizerState testState;
+@property (nonatomic) CGPoint testLocation;
+@end
+
+@implementation MBTestTapRecognizer
+- (UIGestureRecognizerState)state { return self.testState; }
+- (CGPoint)locationInView:(UIView *)view { return self.testLocation; }
+@end
+
+@interface MBTestTouch : UITouch
+@property (nonatomic, strong) UIView *testView;
+@property (nonatomic) CGPoint testLocation;
+@end
+
+@implementation MBTestTouch
+- (UIView *)view { return self.testView; }
+- (CGPoint)locationInView:(UIView *)view { return self.testLocation; }
+@end
+
 @interface HudTests : XCTestCase <MBProgressHUDDelegate>
 
 @property (nonatomic) XCTestExpectation *hideExpectation;
@@ -325,6 +371,213 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 
 #pragma mark - Customization
 
+- (MBTestTapRecognizer *)installTestTapOnHUD:(MBProgressHUD *)hud {
+    UIGestureRecognizer *original = [hud valueForKey:@"backgroundTapRecognizer"];
+    [original.view removeGestureRecognizer:original];
+    MBTestTapRecognizer *tap = [MBTestTapRecognizer new];
+    tap.delegate = original.delegate;
+    [hud.backgroundView addGestureRecognizer:tap];
+    [hud setValue:tap forKey:@"backgroundTapRecognizer"];
+    tap.testState = UIGestureRecognizerStateRecognized;
+    tap.testLocation = CGPointMake(2.f, 2.f);
+    return tap;
+}
+
+- (void)testBackgroundTapConfigurationsAndExternalRecognizer {
+    UIView *host = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 480)];
+    MBProgressHUD *hud = [[MBProgressHUD alloc] initWithView:host];
+    [host addSubview:hud];
+    UITapGestureRecognizer *external = [UITapGestureRecognizer new];
+    [hud.backgroundView addGestureRecognizer:external];
+    XCTAssertNil(hud.backgroundTapHandler);
+    XCTAssertNil([hud valueForKey:@"backgroundTapRecognizer"]);
+    __block NSUInteger calls = 0;
+    hud.backgroundTapHandler = ^(MBProgressHUD *target) { calls++; };
+    UIGestureRecognizer *recognizer = [hud valueForKey:@"backgroundTapRecognizer"];
+    XCTAssertNotNil(recognizer);
+    XCTAssertEqual(recognizer.view, hud.backgroundView);
+    XCTAssertEqual(recognizer.delegate, [hud valueForKey:@"backgroundTapTarget"]);
+    XCTAssertNotEqual((id)recognizer.delegate, hud);
+    hud.backgroundTapHandler = ^(MBProgressHUD *target) { calls += 10; };
+    XCTAssertEqual([hud valueForKey:@"backgroundTapRecognizer"], recognizer);
+    MBTestTapRecognizer *tap = [self installTestTapOnHUD:hud];
+    [hud showAnimated:NO];
+    [hud layoutIfNeeded];
+    [hud mb_handleBackgroundTap:tap];
+    [hud mb_handleBackgroundTap:tap];
+    XCTAssertEqual(calls, 20u);
+    MBTestHUDIsVisible(hud, host);
+    hud.backgroundTapHandler = nil;
+    XCTAssertNil([hud valueForKey:@"backgroundTapRecognizer"]);
+    XCTAssertNil(tap.view);
+    XCTAssertEqual(external.view, hud.backgroundView);
+    [hud mb_handleBackgroundTap:tap];
+    XCTAssertEqual(calls, 20u);
+    [hud hideAnimated:NO];
+}
+
+- (void)testBackgroundTapSubclassSelectorsAndExternalDelegate {
+    UIView *host = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 480)];
+    MBTestConflictingHUD *hud = [[MBTestConflictingHUD alloc] initWithView:host];
+    [host addSubview:hud];
+    UITapGestureRecognizer *external = [UITapGestureRecognizer new];
+    external.delegate = hud;
+    [hud.backgroundView addGestureRecognizer:external];
+    __block NSUInteger calls = 0;
+    hud.backgroundTapHandler = ^(MBProgressHUD *target) { calls++; };
+    MBTestTapRecognizer *tap = [self installTestTapOnHUD:hud];
+    id<UIGestureRecognizerDelegate> target = tap.delegate;
+    [hud showAnimated:NO];
+    [hud layoutIfNeeded];
+    MBTestTouch *touch = [MBTestTouch new];
+    touch.testView = hud.backgroundView;
+    touch.testLocation = CGPointMake(2, 2);
+    XCTAssertTrue([target gestureRecognizer:tap shouldReceiveTouch:touch]);
+    XCTAssertFalse([target gestureRecognizer:tap shouldReceivePress:[UIPress new]]);
+    [(id)target handleTap:tap];
+    XCTAssertEqual(calls, 1u);
+    XCTAssertEqual(hud.actionCalls, 0u);
+    XCTAssertEqual(hud.delegateCalls, 0u);
+    XCTAssertEqual(external.delegate, hud);
+    XCTAssertFalse([external.delegate gestureRecognizer:external shouldReceiveTouch:touch]);
+    XCTAssertTrue([external.delegate gestureRecognizer:external shouldReceivePress:[UIPress new]]);
+    XCTAssertEqual(hud.delegateCalls, 2u);
+    [hud hideAnimated:NO];
+    target = nil;
+    hud.backgroundTapHandler = nil;
+    XCTAssertNil([hud valueForKey:@"backgroundTapTarget"]);
+    XCTAssertEqual(external.delegate, hud);
+
+    MBProgressHUD *base = [[MBProgressHUD alloc] initWithView:host];
+    XCTAssertFalse([base respondsToSelector:@selector(gestureRecognizer:shouldReceiveTouch:)]);
+    XCTAssertFalse([base respondsToSelector:@selector(gestureRecognizer:shouldReceivePress:)]);
+}
+
+- (void)testBackgroundTapGeometryAndRecognitionGuards {
+    UIView *host = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 480)];
+    MBProgressHUD *hud = [[MBProgressHUD alloc] initWithView:host];
+    [host addSubview:hud];
+    __block NSUInteger calls = 0;
+    hud.backgroundTapHandler = ^(MBProgressHUD *target) { calls++; };
+    MBTestTapRecognizer *tap = [self installTestTapOnHUD:hud];
+    [hud showAnimated:NO];
+    [hud layoutIfNeeded];
+    CGPoint inside = [hud.bezelView convertPoint:CGPointMake(CGRectGetMidX(hud.bezelView.bounds), CGRectGetMidY(hud.bezelView.bounds)) toView:hud.backgroundView];
+    XCTAssertTrue([hud mb_isBackgroundTapPoint:CGPointMake(2, 2)]);
+    XCTAssertFalse([hud mb_isBackgroundTapPoint:inside]);
+    XCTAssertFalse([hud mb_isBackgroundTapPoint:CGPointMake(-1, 2)]);
+    hud.bezelView.userInteractionEnabled = NO;
+    XCTAssertFalse([hud mb_isBackgroundTapPoint:inside]);
+
+    MBTestTouch *touch = [MBTestTouch new];
+    touch.testView = hud.backgroundView;
+    touch.testLocation = CGPointMake(2, 2);
+    XCTAssertTrue([(id<UIGestureRecognizerDelegate>)tap.delegate gestureRecognizer:tap shouldReceiveTouch:touch]);
+    touch.testLocation = inside;
+    XCTAssertFalse([(id<UIGestureRecognizerDelegate>)tap.delegate gestureRecognizer:tap shouldReceiveTouch:touch]);
+    touch.testLocation = CGPointMake(-1, 2);
+    XCTAssertFalse([(id<UIGestureRecognizerDelegate>)tap.delegate gestureRecognizer:tap shouldReceiveTouch:touch]);
+    touch.testLocation = CGPointMake(2, 2);
+    touch.testView = hud.bezelView;
+    XCTAssertFalse([(id<UIGestureRecognizerDelegate>)tap.delegate gestureRecognizer:tap shouldReceiveTouch:touch]);
+    XCTAssertFalse([(id<UIGestureRecognizerDelegate>)tap.delegate gestureRecognizer:[UITapGestureRecognizer new] shouldReceiveTouch:touch]);
+    XCTAssertFalse([(id<UIGestureRecognizerDelegate>)tap.delegate gestureRecognizer:tap shouldReceivePress:[UIPress new]]);
+
+    tap.testState = UIGestureRecognizerStatePossible;
+    [hud mb_handleBackgroundTap:tap];
+    tap.testState = UIGestureRecognizerStateRecognized;
+    tap.testLocation = inside;
+    [hud mb_handleBackgroundTap:tap];
+    tap.testLocation = CGPointMake(2, 2);
+    hud.userInteractionEnabled = NO;
+    [hud mb_handleBackgroundTap:tap];
+    hud.userInteractionEnabled = YES;
+    hud.backgroundView.userInteractionEnabled = NO;
+    [hud mb_handleBackgroundTap:tap];
+    hud.backgroundView.userInteractionEnabled = YES;
+    [hud mb_handleBackgroundTap:[MBTestTapRecognizer new]];
+    XCTAssertEqual(calls, 0u);
+    [hud mb_handleBackgroundTap:tap];
+    XCTAssertEqual(calls, 1u);
+    [hud hideAnimated:NO];
+    [hud mb_handleBackgroundTap:tap];
+    XCTAssertEqual(calls, 1u);
+    [hud showAnimated:NO];
+    [hud mb_handleBackgroundTap:tap];
+    XCTAssertEqual(calls, 2u);
+    [hud hideAnimated:NO];
+}
+
+- (void)testBackgroundTapSynchronousHideAndReuse {
+    UIView *host = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 480)];
+    MBProgressHUD *hud = [[MBProgressHUD alloc] initWithView:host];
+    [host addSubview:hud];
+    hud.minShowTime = 0.3;
+    __block NSUInteger calls = 0;
+    hud.backgroundTapHandler = ^(MBProgressHUD *target) {
+        calls++;
+        [target hideAnimated:NO];
+    };
+    MBTestTapRecognizer *tap = [self installTestTapOnHUD:hud];
+    XCTestExpectation *finished = [self expectationWithDescription:@"Minimum display time completes"];
+    hud.completionBlock = ^{ [finished fulfill]; };
+    [hud showAnimated:NO];
+    [hud layoutIfNeeded];
+    [hud mb_handleBackgroundTap:tap];
+    XCTAssertEqual(calls, 1u);
+    XCTAssertEqual(hud.alpha, 1.f);
+    [hud mb_handleBackgroundTap:tap];
+    XCTAssertEqual(calls, 1u);
+    [self waitForExpectationsWithTimeout:3.f handler:nil];
+    XCTAssertEqual(hud.alpha, 0.f);
+    [hud mb_handleBackgroundTap:tap];
+    XCTAssertEqual(calls, 1u);
+    hud.completionBlock = nil;
+    hud.minShowTime = 0;
+    [hud showAnimated:NO];
+    XCTAssertNotNil(hud.backgroundTapHandler);
+    [hud mb_handleBackgroundTap:tap];
+    XCTAssertEqual(calls, 2u);
+    XCTAssertEqual(hud.alpha, 0.f);
+}
+
+- (void)testBackgroundTapDelayedHideAndSelfRemoval {
+    UIView *host = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 480)];
+    MBProgressHUD *hud = [[MBProgressHUD alloc] initWithView:host];
+    [host addSubview:hud];
+    __block NSUInteger calls = 0;
+    hud.backgroundTapHandler = ^(MBProgressHUD *target) {
+        calls++;
+        if (calls == 1) [target hideAnimated:NO afterDelay:0.2];
+    };
+    MBTestTapRecognizer *tap = [self installTestTapOnHUD:hud];
+    XCTestExpectation *finished = [self expectationWithDescription:@"Delayed hide completes"];
+    hud.completionBlock = ^{ [finished fulfill]; };
+    [hud showAnimated:NO];
+    [hud layoutIfNeeded];
+    [hud mb_handleBackgroundTap:tap];
+    [hud mb_handleBackgroundTap:tap];
+    XCTAssertEqual(calls, 2u);
+    MBTestHUDIsVisible(hud, host);
+    [self waitForExpectationsWithTimeout:3.f handler:nil];
+    XCTAssertEqual(hud.alpha, 0.f);
+    [hud mb_handleBackgroundTap:tap];
+    XCTAssertEqual(calls, 2u);
+    hud.completionBlock = nil;
+    hud.backgroundTapHandler = ^(MBProgressHUD *target) {
+        calls++;
+        target.backgroundTapHandler = nil;
+    };
+    [hud showAnimated:NO];
+    [hud mb_handleBackgroundTap:tap];
+    XCTAssertEqual(calls, 3u);
+    XCTAssertNil(hud.backgroundTapHandler);
+    XCTAssertNil(tap.view);
+    [hud mb_handleBackgroundTap:tap];
+    XCTAssertEqual(calls, 3u);
+    [hud hideAnimated:NO];
+}
+
 - (void)testBackgroundColorCanBeCleared {
     MBBackgroundView *background = [MBBackgroundView new];
     XCTAssertNil(background.color);
@@ -424,6 +677,36 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 }
 
 #pragma mark - Delay
+
+- (void)testRepeatedDelayedHideAndReshow {
+    UIView *host = [self hostRootView];
+    MBProgressHUD *hud = [[MBProgressHUD alloc] initWithView:host];
+    [host addSubview:hud];
+    [self addTeardownBlock:^{ [hud hideAnimated:NO]; [hud removeFromSuperview]; }];
+    __block NSUInteger completions = 0;
+    hud.completionBlock = ^{ completions++; };
+    [hud showAnimated:NO];
+    [hud hideAnimated:NO afterDelay:0.05];
+    [hud hideAnimated:NO afterDelay:0.1];
+    XCTestExpectation *hidden = [self expectationWithDescription:@"Repeated scheduling completes once"];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        XCTAssertEqual(completions, 1u);
+        XCTAssertEqual(hud.alpha, 0.f);
+        [hud showAnimated:NO];
+        [hud hideAnimated:NO afterDelay:0.05];
+        [hud showAnimated:NO];
+        [hidden fulfill];
+    });
+    [self waitForExpectationsWithTimeout:2.f handler:nil];
+    XCTestExpectation *reused = [self expectationWithDescription:@"Re-show cancels pending delay"];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        MBTestHUDIsVisible(hud, host);
+        XCTAssertEqual(completions, 1u);
+        [reused fulfill];
+    });
+    [self waitForExpectationsWithTimeout:2.f handler:nil];
+    hud.completionBlock = nil;
+}
 
 - (void)testDelayedHide {
     UIView *rootView = [self hostRootView];
