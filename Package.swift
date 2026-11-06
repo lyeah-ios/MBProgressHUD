@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "MBProgressHUD",
+    platforms: [.iOS(.v15), .tvOS(.v15), .macCatalyst(.v15)],
     products: [
         .library(name: "MBProgressHUD", targets: ["MBProgressHUD"])
     ],

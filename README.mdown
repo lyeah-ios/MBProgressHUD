@@ -1,9 +1,10 @@
 # MBProgressHUD
 
-[![Build Status](https://travis-ci.org/matej/MBProgressHUD.svg?branch=master)](https://travis-ci.org/matej/MBProgressHUD) [![codecov.io](https://codecov.io/github/matej/MBProgressHUD/coverage.svg?branch=master)](https://codecov.io/github/matej/MBProgressHUD?branch=master)
- [![SwiftPM compatible](https://img.shields.io/badge/SwiftPM-compatible-brightgreen.svg)](https://github.com/apple/swift-package-manager) [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage#adding-frameworks-to-an-application) [![Accio supported](https://img.shields.io/badge/Accio-supported-0A7CF5.svg?style=flat)](https://github.com/JamitLabs/Accio) [![CocoaPods compatible](https://img.shields.io/cocoapods/v/MBProgressHUD.svg?style=flat)](https://cocoapods.org/pods/MBProgressHUD) [![License: MIT](https://img.shields.io/cocoapods/l/MBProgressHUD.svg?style=flat)](http://opensource.org/licenses/MIT)
+[![SwiftPM compatible](https://img.shields.io/badge/SwiftPM-compatible-brightgreen.svg)](https://github.com/apple/swift-package-manager) [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage#adding-frameworks-to-an-application) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](http://opensource.org/licenses/MIT)
 
 `MBProgressHUD` is an iOS drop-in class that displays a translucent HUD with an indicator and/or labels while work is being done in a background thread. The HUD is meant as a replacement for the undocumented, private `UIKit` `UIProgressHUD` with some additional features.
+
+This repository is an Objective-C fork of [Matej Bukovinski's MBProgressHUD](https://github.com/matej/MBProgressHUD), targeting **2.0.0 (unreleased)**. It retains the original attribution and MIT license. Configuration and validation are local; the version tag and private Specs release have not been published.
 
 [![](https://raw.githubusercontent.com/wiki/matej/MBProgressHUD/Screenshots/1-small.png)](https://raw.githubusercontent.com/wiki/matej/MBProgressHUD/Screenshots/1.png)
 [![](https://raw.githubusercontent.com/wiki/matej/MBProgressHUD/Screenshots/2-small.png)](https://raw.githubusercontent.com/wiki/matej/MBProgressHUD/Screenshots/2.png)
@@ -15,13 +16,15 @@
 
 ## Requirements
 
-`MBProgressHUD` works on iOS 9.0+. It depends on the following Apple frameworks, which should already be included with most Xcode templates:
+Version 2.0.0 of this fork requires **iOS 15.0+** or **tvOS 15.0+**, and supports **Mac Catalyst 15.0+ (macOS 12.0+)**. It depends on UIKit and does not support native AppKit/macOS targets. The following Apple frameworks are required and are usually included in Xcode application templates:
 
 * Foundation.framework
 * UIKit.framework
 * CoreGraphics.framework
 
-You will need the latest developer tools in order to build `MBProgressHUD`. Old Xcode versions might work, but compatibility will not be explicitly maintained.
+Use Xcode 15 or later with the appropriate platform SDK. The SwiftPM manifest requires Swift tools 5.9. The legacy `.travis.yml` uses Xcode 11.2 and iOS 13.2.2, so it cannot validate the iOS 15 deployment target or the current SwiftPM tools requirement.
+
+The Xcode projects, podspec, and SwiftPM manifest use the same iOS/tvOS 15.0 minimum. The `HudTests` target independently requires iOS 17.0+ to match the XCTest framework bundled with the current toolchain; the library and demos still support iOS 15.0.
 
 ## Adding MBProgressHUD to your project
 
@@ -29,33 +32,58 @@ You will need the latest developer tools in order to build `MBProgressHUD`. Old 
 
 [CocoaPods](http://cocoapods.org) is the recommended way to add MBProgressHUD to your project.
 
-1. Add a pod entry for MBProgressHUD to your Podfile `pod 'MBProgressHUD', '~> 1.2.0'`
-2. Install the pod(s) by running `pod install`.
-3. Include MBProgressHUD wherever you need it with `#import "MBProgressHUD.h"`.
+Version 2.0.0 is intended for a private Specs repository. Obtain its URL through your internal distribution channel. The podspec points to `https://github.com/lyeah-ios/MBProgressHUD.git` at tag `2.0.0`; this source repository is separate from the Specs repository.
+
+The following Podfile is for use after 2.0.0 is published; the version may not resolve yet. Replace `<PRIVATE_SPECS_URL>` locally with the private Specs URL you have access to. Keep the public source if your project also has public dependencies:
+
+```ruby
+source '<PRIVATE_SPECS_URL>'
+source 'https://cdn.cocoapods.org/'
+
+platform :ios, '15.0'
+
+target 'YourApp' do
+  pod 'MBProgressHUD', '2.0.0'
+end
+```
+
+Run `pod install` in your application directory, then import the library with `#import "MBProgressHUD.h"`.
+
+For local validation, replace the version dependency with a `:path` dependency pointing to the root of your local checkout. This does not require publishing a spec or creating a tag:
+
+```ruby
+pod 'MBProgressHUD', :path => '../MBProgressHUD'
+```
+
+The `:path` dependency uses the local 2.0.0 podspec and source files. A successful local integration does not verify installation from the remote tag or private Specs repository.
 
 ### Carthage
 
-1. Add MBProgressHUD to your Cartfile. e.g., `github "jdg/MBProgressHUD" ~> 1.2.0`
+The following configuration requires the fork's `2.0.0` tag to be available.
+
+1. Add `github "lyeah-ios/MBProgressHUD" == 2.0.0` to your Cartfile.
 2. Run `carthage update`
 3. Follow the rest of the [standard Carthage installation instructions](https://github.com/Carthage/Carthage#adding-frameworks-to-an-application) to add MBProgressHUD to your project.
 
-### SwiftPM / Accio
+### SwiftPM
 
-1. Add the following to your `Package.swift`:
+The following configuration requires the fork's `2.0.0` tag, Swift tools 5.9, and Xcode 15 or later.
+
+1. Add the following dependency to your `Package.swift`:
 	```swift
-	.package(url: "https://github.com/jdg/MBProgressHUD.git", .upToNextMajor(from: "1.2.0")),
+	.package(url: "https://github.com/lyeah-ios/MBProgressHUD.git", exact: "2.0.0"),
 	```
 2. Next, add `MBProgressHUD` to your App targets dependencies like so:
 	```swift
 	.target(name: "App", dependencies: ["MBProgressHUD"]),
 	```
-3. Then open your project in Xcode 11+ (SwiftPM) or run `accio update` (Accio).
+3. Open the project in Xcode 15 or later and resolve its package dependencies.
 
 ### Source files
 
 Alternatively you can directly add the `MBProgressHUD.h` and `MBProgressHUD.m` source files to your project.
 
-1. Download the [latest code version](https://github.com/matej/MBProgressHUD/archive/master.zip) or add the repository as a git submodule to your git-tracked project.
+1. Check out the [fork repository](https://github.com/lyeah-ios/MBProgressHUD.git), or add it as a Git submodule. Select tag `2.0.0` once it becomes available.
 2. Open your project in Xcode, then drag and drop `MBProgressHUD.h` and `MBProgressHUD.m` onto your project (use the "Product Navigator view"). Make sure to select Copy items when asked if you extracted the code archive outside of your project.
 3. Include MBProgressHUD wherever you need it with `#import "MBProgressHUD.h"`.
 
@@ -63,12 +91,14 @@ Alternatively you can directly add the `MBProgressHUD.h` and `MBProgressHUD.m` s
 
 You can also add MBProgressHUD as a static library to your project or workspace.
 
-1. Download the [latest code version](https://github.com/matej/MBProgressHUD/downloads) or add the repository as a git submodule to your git-tracked project.
+1. Check out the [fork repository](https://github.com/lyeah-ios/MBProgressHUD.git), or add it as a Git submodule. Select tag `2.0.0` once it becomes available.
 2. Open your project in Xcode, then drag and drop `MBProgressHUD.xcodeproj` onto your project or workspace (use the "Product Navigator view").
 3. Select your target and go to the Build phases tab. In the Link Binary With Libraries section select the add button. On the sheet find and add `libMBProgressHUD.a`. You might also need to add `MBProgressHUD` to the Target Dependencies list.
 4. Include MBProgressHUD wherever you need it with `#import <MBProgressHUD/MBProgressHUD.h>`.
 
 ## Usage
+
+To run the demos, open `MBProgressHUD.xcworkspace` and select the `HudDemo` scheme for iOS/Mac Catalyst or `HudDemoTV` for tvOS, along with a suitable device or simulator. Both demos load the existing Main storyboard through a SceneDelegate. Select your signing team when running on a physical device. See [Testing](#testing) for the separate `HudTests` scheme.
 
 The main guideline you need to follow when dealing with MBProgressHUD while running long-running tasks is keeping the main thread work-free, so the UI can be updated promptly. The recommended way of using MBProgressHUD is therefore to set it up on the main thread and then spinning the task, that you want to perform, off onto a new thread.
 
@@ -135,6 +165,47 @@ This code is distributed under the terms and conditions of the [MIT license](LIC
 
 A brief summary of each MBProgressHUD release can be found in the [CHANGELOG](CHANGELOG.mdown).
 
+## API Compatibility
+
+The current compatibility changes preserve the HUD's public API and appearance:
+
+| Area | Changes |
+| --- | --- |
+| Indeterminate indicator | Both iOS and tvOS use `UIActivityIndicatorViewStyleLarge`; the obsolete `WhiteLarge` fallback is removed. |
+| Rotation and resizing | UIKit handles scene and view geometry. The HUD fills its superview when attached and follows later size changes through autoresizing. The deprecated status bar orientation notification and the manual UIWindow transform used before iOS 8 are removed. |
+| Other legacy fallbacks | UIAppearance, dynamic colors, and blur initialization use APIs supported by the minimum deployment targets. Required tvOS blur differences remain. |
+| Demo launch | Both iOS and tvOS use `UIWindowSceneDelegate` with the existing storyboard. |
+| Test host window | Tests locate the Demo SceneDelegate's window and wait for readiness with a bounded timeout, replacing `UIApplication.windows.firstObject`. |
+| Decoding and view lookup tests | Tests use valid in-memory archives and modern decoding APIs. View lookup explicitly returns nil when no match exists. |
+| Catalyst bundle identifier | SDK-specific build settings replace the unsupported automatic derivation setting while preserving the existing identifier. |
+
+The existing `CADisplayLink` creation API is not deprecated; adopting SDK 27's scene display-link API is not required for this update. `UITableViewCell.textLabel` is marked for future deprecation, so the demo list has not been rewritten. Blur styles retain the necessary iOS/tvOS availability differences.
+
+Network demo error handling, refreshing borders after converting dynamic colors to `CGColor`, progress object lifetime, mode switching, and nullable contracts are separate behavior issues that require focused investigation. They are outside the scope of this compatibility update.
+
+## Testing
+
+The XCTest suite requires an iOS 17.0 or later simulator and runs inside the `HudDemo` application. From the repository root, list the available destinations:
+
+```sh
+xcodebuild -showdestinations -workspace MBProgressHUD.xcworkspace -scheme HudTests
+```
+
+Replace `<SIMULATOR_UDID>` with an available iOS simulator identifier and run the full suite:
+
+```sh
+xcodebuild test -workspace MBProgressHUD.xcworkspace \
+  -scheme HudTests -configuration Debug \
+  -destination 'platform=iOS Simulator,id=<SIMULATOR_UDID>' \
+  -parallel-testing-enabled NO
+```
+
+To run only the scene rotation regression test, append `-only-testing:HudTests/HudTests/testHUDTracksSceneRotation`. It requests portrait, landscape, and portrait scene orientations using public geometry APIs, with the HUD attached to the controller's root view and then directly to its window. It checks coverage and centering after layout settles and restores the initial orientation. Use a full-screen iPhone simulator that supports these orientations.
+
+Other layout tests change a container's bounds or move the HUD between superviews; those tests do not themselves trigger scene rotation. Scene geometry requests exercise UIKit's orientation layout path, not physical device sensors or rotation lock behavior. They also do not validate runtime behavior on iOS 15. There is no tvOS test target, and `swift test` cannot run this UIKit suite.
+
 ## Privacy
 
 MBProgressHUD does not collect any data. See [SDK Privacy Practices](https://bukovinski.com/sdk-privacy/mbprogresshud/) for more information.
+
+`PrivacyInfo.xcprivacy` is included through the CocoaPods `MBProgressHUD` resource bundle, SwiftPM resources, and the iOS/tvOS Framework resource phases. Ensure that the corresponding resources are packaged with your application. When adding the `.h`/`.m` files manually or linking the static `.a` library, add the privacy manifest to the application's Copy Bundle Resources phase yourself; copying source files or linking the archive alone does not include it.

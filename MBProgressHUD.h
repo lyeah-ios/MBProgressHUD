@@ -65,7 +65,7 @@ typedef NS_ENUM(NSInteger, MBProgressHUDAnimation) {
 typedef NS_ENUM(NSInteger, MBProgressHUDBackgroundStyle) {
     /// Solid color background
     MBProgressHUDBackgroundStyleSolidColor,
-    /// UIVisualEffectView or UIToolbar.layer background view
+    /// UIVisualEffectView background view
     MBProgressHUDBackgroundStyleBlur
 };
 
@@ -79,8 +79,8 @@ NS_ASSUME_NONNULL_BEGIN
  * Displays a simple HUD window containing a progress indicator and two optional labels for short messages.
  *
  * This is a simple drop-in class for displaying a progress HUD view similar to Apple's private UIProgressHUD class.
- * The MBProgressHUD window spans over the entire space given to it by the initWithFrame: constructor and catches all
- * user input on this region, thereby preventing the user operations on components below the view.
+ * When added to a superview, the HUD fills its bounds and resizes with it. It catches all user input
+ * in this region, thereby preventing user operations on components below the view.
  *
  * @note To still allow touches to pass through the HUD, you can set hud.userInteractionEnabled = NO.
  * @attention MBProgressHUD is a UI class and should therefore only be accessed on the main thread.
@@ -216,8 +216,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 /**
  * A color that gets forwarded to all labels and supported indicators. Also sets the tintColor
- * for custom views on iOS 7+. Set to nil to manage color individually.
- * Defaults to semi-translucent black on iOS 7 and later and white on earlier iOS versions.
+ * for custom views. Set to nil to manage color individually.
+ * Defaults to labelColor with an alpha of 0.7, adapting to the current appearance.
  */
 @property (strong, nonatomic, nullable) UIColor *contentColor UI_APPEARANCE_SELECTOR;
 
@@ -339,7 +339,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 /**
  * Indicator background (non-progress) color.
- * Only applicable on iOS versions older than iOS 7.
  * Defaults to translucent white (alpha 0.1).
  */
 @property (nonatomic, strong) UIColor *backgroundTintColor;
@@ -393,16 +392,15 @@ NS_ASSUME_NONNULL_BEGIN
 
 /**
  * The blur effect style, when using MBProgressHUDBackgroundStyleBlur.
- * Defaults to UIBlurEffectStyleLight.
+ * Defaults to UIBlurEffectStyleRegular on tvOS and UIBlurEffectStyleSystemThickMaterial
+ * on iOS and Mac Catalyst.
  */
 @property (nonatomic) UIBlurEffectStyle blurEffectStyle;
 
 /**
  * The background color or the blur tint color.
  *
- * Defaults to nil on iOS 13 and later and
- * `[UIColor colorWithWhite:0.8f alpha:0.6f]`
- * on older systems.
+ * Defaults to nil.
  */
 @property (nonatomic, strong, nullable) UIColor *color;
 

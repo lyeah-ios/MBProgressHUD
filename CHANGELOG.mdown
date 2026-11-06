@@ -1,3 +1,15 @@
+**Version 2.0.0** (unreleased)
+
+- Set the version to 2.0.0 and align the Xcode projects, CocoaPods, and SwiftPM minimum deployment targets at iOS/tvOS 15.0. Explicitly support Mac Catalyst 15.0 (macOS 12.0) and retain Swift tools 5.9.
+- Point the podspec source to `https://github.com/lyeah-ios/MBProgressHUD.git` at tag `2.0.0`, with a private Specs repository as the intended distribution target.
+- Update installation instructions for the private 2.0.0 pod, local `:path` integration, the fork's Carthage/SwiftPM packages, and privacy resources, retaining the original attribution and MIT license.
+- Include the privacy manifest in the iOS/tvOS demos that compile the library source directly. Preserve its distribution through the CocoaPods resource bundle, SwiftPM, and Framework resources.
+- Use the UIScene lifecycle to load the existing demo storyboards on iOS/tvOS. Running the iOS demo no longer builds the test bundle.
+- Use the modern activity indicator on iOS/tvOS 15. Remove legacy indicator, UIAppearance, color, and blur fallbacks while retaining platform-specific blur styles. Remove deprecated status bar orientation notifications and the manual UIWindow rotation path used before iOS 8; retain superview bounds synchronization and autoresizing.
+- Add regression coverage for parent bounds changes, HUD centering, and attachment, reparenting, and removal. Separately test scene orientation changes with the HUD attached to the controller's root view and directly to UIWindow.
+- Locate the test host through its SceneDelegate, use valid in-memory archives with modern decoding APIs, and fix uninitialized view lookup results. Cover empty and nested view trees.
+- Require iOS 17 only for HudTests to match the current XCTest framework. Configure the Catalyst bundle identifier through SDK-specific build settings.
+
 **Version 1.0.0** @ 14.07.16
 
 - Requires ARC and iOS 6+.

@@ -83,11 +83,7 @@ static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
     _margin = 20.0f;
     _defaultMotionEffectsEnabled = NO;
 
-    if (@available(iOS 13.0, tvOS 13, *)) {
-       _contentColor = [[UIColor labelColor] colorWithAlphaComponent:0.7f];
-    } else {
-        _contentColor = [UIColor colorWithWhite:0.f alpha:0.7f];
-    }
+    _contentColor = [[UIColor labelColor] colorWithAlphaComponent:0.7f];
 
     // Transparent background
     self.opaque = NO;
@@ -99,7 +95,6 @@ static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
 
     [self setupViews];
     [self updateIndicators];
-    [self registerForNotifications];
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -119,10 +114,6 @@ static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
 - (id)initWithView:(UIView *)view {
     NSAssert(view, @"View must not be nil.");
     return [self initWithFrame:view.bounds];
-}
-
-- (void)dealloc {
-    [self unregisterFromNotifications];
 }
 
 #pragma mark - Show & hide
@@ -193,7 +184,9 @@ static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
 #pragma mark - View Hierrarchy
 
 - (void)didMoveToSuperview {
-    [self updateForCurrentOrientationAnimated:NO];
+    if (self.superview) {
+        self.frame = self.superview.bounds;
+    }
 }
 
 #pragma mark - Internal show & hide operations
@@ -372,16 +365,8 @@ static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
             // Update to indeterminate indicator
             UIActivityIndicatorView *activityIndicator;
             [indicator removeFromSuperview];
-#if !TARGET_OS_MACCATALYST
-            if (@available(iOS 13.0, tvOS 13.0, *)) {
-#endif
-                activityIndicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
-                activityIndicator.color = [UIColor whiteColor];
-#if !TARGET_OS_MACCATALYST
-            } else {
-               activityIndicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
-            }
-#endif
+            activityIndicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
+            activityIndicator.color = [UIColor whiteColor];
             [activityIndicator startAnimating];
             indicator = activityIndicator;
             [self.bezelView addSubview:indicator];
@@ -439,24 +424,13 @@ static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
 
     UIView *indicator = self.indicator;
     if ([indicator isKindOfClass:[UIActivityIndicatorView class]]) {
-        UIActivityIndicatorView *appearance = nil;
-#if __IPHONE_OS_VERSION_MIN_REQUIRED < 90000
-        appearance = [UIActivityIndicatorView appearanceWhenContainedIn:[MBProgressHUD class], nil];
-#else
-        // For iOS 9+
-        appearance = [UIActivityIndicatorView appearanceWhenContainedInInstancesOfClasses:@[[MBProgressHUD class]]];
-#endif
+        UIActivityIndicatorView *appearance = [UIActivityIndicatorView appearanceWhenContainedInInstancesOfClasses:@[[MBProgressHUD class]]];
 
         if (appearance.color == nil) {
             ((UIActivityIndicatorView *)indicator).color = color;
         }
     } else if ([indicator isKindOfClass:[MBRoundProgressView class]]) {
-        MBRoundProgressView *appearance = nil;
-#if __IPHONE_OS_VERSION_MIN_REQUIRED < 90000
-        appearance = [MBRoundProgressView appearanceWhenContainedIn:[MBProgressHUD class], nil];
-#else
-        appearance = [MBRoundProgressView appearanceWhenContainedInInstancesOfClasses:@[[MBProgressHUD class]]];
-#endif
+        MBRoundProgressView *appearance = [MBRoundProgressView appearanceWhenContainedInInstancesOfClasses:@[[MBProgressHUD class]]];
         if (appearance.progressTintColor == nil) {
             ((MBRoundProgressView *)indicator).progressTintColor = color;
         }
@@ -464,12 +438,7 @@ static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
             ((MBRoundProgressView *)indicator).backgroundTintColor = [color colorWithAlphaComponent:0.1];
         }
     } else if ([indicator isKindOfClass:[MBBarProgressView class]]) {
-        MBBarProgressView *appearance = nil;
-#if __IPHONE_OS_VERSION_MIN_REQUIRED < 90000
-        appearance = [MBBarProgressView appearanceWhenContainedIn:[MBProgressHUD class], nil];
-#else
-        appearance = [MBBarProgressView appearanceWhenContainedInInstancesOfClasses:@[[MBProgressHUD class]]];
-#endif
+        MBBarProgressView *appearance = [MBBarProgressView appearanceWhenContainedInInstancesOfClasses:@[[MBProgressHUD class]]];
         if (appearance.progressColor == nil) {
             ((MBBarProgressView *)indicator).progressColor = color;
         }
@@ -736,75 +705,6 @@ static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
     self.progress = self.progressObject.fractionCompleted;
 }
 
-#pragma mark - Notifications
-
-- (void)registerForNotifications {
-#if !TARGET_OS_TV && !TARGET_OS_MACCATALYST
-    NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
-
-    [nc addObserver:self selector:@selector(statusBarOrientationDidChange:)
-               name:UIApplicationDidChangeStatusBarOrientationNotification object:nil];
-#endif
-}
-
-- (void)unregisterFromNotifications {
-#if !TARGET_OS_TV && !TARGET_OS_MACCATALYST
-    NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
-    [nc removeObserver:self name:UIApplicationDidChangeStatusBarOrientationNotification object:nil];
-#endif
-}
-
-#if !TARGET_OS_TV && !TARGET_OS_MACCATALYST
-- (void)statusBarOrientationDidChange:(NSNotification *)notification {
-    UIView *superview = self.superview;
-    if (!superview) {
-        return;
-    } else {
-        [self updateForCurrentOrientationAnimated:YES];
-    }
-}
-#endif
-
-- (void)updateForCurrentOrientationAnimated:(BOOL)animated {
-    // Stay in sync with the superview in any case
-    if (self.superview) {
-        self.frame = self.superview.bounds;
-    }
-
-    // Not needed on iOS 8+, compile out when the deployment target allows,
-    // to avoid sharedApplication problems on extension targets
-#if __IPHONE_OS_VERSION_MIN_REQUIRED < 80000
-    // Only needed pre iOS 8 when added to a window
-    BOOL iOS8OrLater = kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_iOS_8_0;
-    if (iOS8OrLater || ![self.superview isKindOfClass:[UIWindow class]]) return;
-
-    // Make extension friendly. Will not get called on extensions (iOS 8+) due to the above check.
-    // This just ensures we don't get a warning about extension-unsafe API.
-    Class UIApplicationClass = NSClassFromString(@"UIApplication");
-    if (!UIApplicationClass || ![UIApplicationClass respondsToSelector:@selector(sharedApplication)]) return;
-
-    UIApplication *application = [UIApplication performSelector:@selector(sharedApplication)];
-    UIInterfaceOrientation orientation = application.statusBarOrientation;
-    CGFloat radians = 0;
-
-    if (UIInterfaceOrientationIsLandscape(orientation)) {
-        radians = orientation == UIInterfaceOrientationLandscapeLeft ? -(CGFloat)M_PI_2 : (CGFloat)M_PI_2;
-        // Window coordinates differ!
-        self.bounds = CGRectMake(0, 0, self.bounds.size.height, self.bounds.size.width);
-    } else {
-        radians = orientation == UIInterfaceOrientationPortraitUpsideDown ? (CGFloat)M_PI : 0.f;
-    }
-
-    if (animated) {
-        [UIView animateWithDuration:0.3 animations:^{
-            self.transform = CGAffineTransformMakeRotation(radians);
-        }];
-    } else {
-        self.transform = CGAffineTransformMakeRotation(radians);
-    }
-#endif
-}
-
 @end
 
 
@@ -1058,17 +958,12 @@ static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
 - (instancetype)initWithFrame:(CGRect)frame {
     if ((self = [super initWithFrame:frame])) {
         _style = MBProgressHUDBackgroundStyleBlur;
-        if (@available(iOS 13.0, *)) {
-            #if TARGET_OS_TV
-            _blurEffectStyle = UIBlurEffectStyleRegular;
-            #else
-            _blurEffectStyle = UIBlurEffectStyleSystemThickMaterial;
-            #endif
-            // Leaving the color unassigned yields best results.
-        } else {
-            _blurEffectStyle = UIBlurEffectStyleLight;
-            _color = [UIColor colorWithWhite:0.8f alpha:0.6f];
-        }
+#if TARGET_OS_TV
+        _blurEffectStyle = UIBlurEffectStyleRegular;
+#else
+        _blurEffectStyle = UIBlurEffectStyleSystemThickMaterial;
+#endif
+        // Leaving the color unassigned yields best results.
 
         self.clipsToBounds = YES;
 

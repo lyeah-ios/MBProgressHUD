@@ -8,15 +8,8 @@
 
 #import <XCTest/XCTest.h>
 #import "MBProgressHUD.h"
+#import "../HudDemo/MBHudDemoSceneDelegate.h"
 
-
-#define weakify(var) __weak typeof(var) weak_##var = var;
-
-#define strongify(var) \
-_Pragma("clang diagnostic push") \
-_Pragma("clang diagnostic ignored \"-Wshadow\"") \
-__strong typeof(var) var = weak_##var; \
-_Pragma("clang diagnostic pop")
 
 #define MBTestHUDIsVisible(hud, rootView) \
 do { \
@@ -55,24 +48,33 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
     UIView *nilView = nil;
     XCTAssertThrows([[MBProgressHUD alloc] initWithView:nilView]);
     XCTAssertNotNil([[MBProgressHUD alloc] initWithFrame:CGRectZero]);
-    NSKeyedUnarchiver *dummyUnarchiver;
-#if !TARGET_OS_MACCATALYST
-    if (@available(iOS 11.0, *)) {
-#endif
-        dummyUnarchiver = [[NSKeyedUnarchiver alloc] initForReadingFromData:[NSData data] error:nil];
-#if !TARGET_OS_MACCATALYST
-    } else {
-        dummyUnarchiver = [[NSKeyedUnarchiver alloc] initForReadingWithData:[NSData data]];
-    }
-#endif
-    XCTAssertNotNil([[MBProgressHUD alloc] initWithCoder:dummyUnarchiver]);
+    UIView *view = [[UIView alloc] initWithFrame:CGRectMake(0.f, 0.f, 320.f, 480.f)];
+    NSKeyedArchiver *archiver = [[NSKeyedArchiver alloc] initRequiringSecureCoding:NO];
+    [view encodeWithCoder:archiver];
+    [archiver finishEncoding];
+    XCTAssertNil(archiver.error);
+
+    NSError *error = nil;
+    NSKeyedUnarchiver *unarchiver = [[NSKeyedUnarchiver alloc] initForReadingFromData:archiver.encodedData error:&error];
+    XCTAssertNil(error);
+    XCTAssertNotNil(unarchiver);
+    unarchiver.requiresSecureCoding = NO;
+
+    MBProgressHUD *hud = [[MBProgressHUD alloc] initWithCoder:unarchiver];
+    [unarchiver finishDecoding];
+    XCTAssertNil(unarchiver.error);
+    XCTAssertNotNil(hud);
+    XCTAssertEqualObjects([NSValue valueWithCGRect:hud.frame], [NSValue valueWithCGRect:view.frame]);
+    XCTAssertEqual(hud.mode, MBProgressHUDModeIndeterminate);
+    XCTAssertEqual(hud.alpha, 0.f);
+    XCTAssertNotNil(hud.label);
+    XCTAssertNotNil(hud.bezelView);
 }
 
 #pragma mark - Convenience
 
 - (void)testNonAnimatedConvenienceHUDPresentation {
-    UIViewController *rootViewController = UIApplication.sharedApplication.windows.firstObject.rootViewController;
-    UIView *rootView = rootViewController.view;
+    UIView *rootView = [self hostRootView];
 
     MBProgressHUD *hud = [MBProgressHUD showHUDAddedTo:rootView animated:NO];
 
@@ -92,8 +94,7 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 }
 
 - (void)testAnimatedConvenienceHUDPresentation {
-    UIViewController *rootViewController = UIApplication.sharedApplication.windows.firstObject.rootViewController;
-    UIView *rootView = rootViewController.view;
+    UIView *rootView = [self hostRootView];
 
     self.hideExpectation = [self expectationWithDescription:@"The hudWasHidden: delegate should have been called."];
 
@@ -116,9 +117,7 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
     XCTAssertEqual(hud.bezelView.alpha, 0.f, @"The HUD bezel should be animated out.");
     XCTAssertTrue([hud.bezelView.layer.animationKeys containsObject:@"opacity"], @"The opacity should be animated.");
 
-    weakify(self);
     self.hideChecks = ^{
-        strongify(self);
         MBTestHUDIsHidenAndRemoved(hud, rootView);
 
         XCTAssertFalse([MBProgressHUD hideHUDForView:rootView animated:YES], @"A subsequent HUD hide operation should fail.");
@@ -128,8 +127,7 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 }
 
 - (void)testCompletionBlock {
-    UIViewController *rootViewController = UIApplication.sharedApplication.windows.firstObject.rootViewController;
-    UIView *rootView = rootViewController.view;
+    UIView *rootView = [self hostRootView];
 
     self.hideExpectation = [self expectationWithDescription:@"The hudWasHidden: delegate should have been called."];
     XCTestExpectation *completionExpectation = [self expectationWithDescription:@"The completionBlock: should have been called."];
@@ -147,9 +145,106 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 
 #pragma mark - Modes
 
+- (void)testHUDMatchesNewSuperviewBounds {
+    UIView *container = [[UIView alloc] initWithFrame:CGRectMake(0.f, 0.f, 320.f, 480.f)];
+    MBProgressHUD *hud = [[MBProgressHUD alloc] initWithFrame:CGRectMake(10.f, 20.f, 40.f, 60.f)];
+
+    [container addSubview:hud];
+    XCTAssertTrue(CGRectEqualToRect(hud.frame, container.bounds));
+
+    UIView *otherContainer = [[UIView alloc] initWithFrame:CGRectMake(0.f, 0.f, 640.f, 360.f)];
+    otherContainer.bounds = CGRectMake(15.f, 25.f, 640.f, 360.f);
+    [otherContainer addSubview:hud];
+    XCTAssertEqualObjects(hud.superview, otherContainer);
+    XCTAssertTrue(CGRectEqualToRect(hud.frame, otherContainer.bounds));
+
+    CGRect frame = hud.frame;
+    [hud removeFromSuperview];
+    XCTAssertNil(hud.superview);
+    XCTAssertTrue(CGRectEqualToRect(hud.frame, frame));
+}
+
+- (void)testHUDResizesWithSuperview {
+    UIView *container = [[UIView alloc] initWithFrame:CGRectMake(0.f, 0.f, 320.f, 480.f)];
+    MBProgressHUD *hud = [MBProgressHUD showHUDAddedTo:container animated:NO];
+
+    // Rotation and scene resizing must not depend on status bar notifications.
+    for (NSValue *size in @[[NSValue valueWithCGSize:CGSizeMake(480.f, 320.f)],
+                            [NSValue valueWithCGSize:CGSizeMake(240.f, 320.f)]]) {
+        container.bounds = (CGRect){CGPointZero, size.CGSizeValue};
+        [container layoutIfNeeded];
+
+        XCTAssertTrue(CGRectEqualToRect(hud.frame, container.bounds));
+        XCTAssertEqualWithAccuracy(hud.bezelView.center.x, CGRectGetMidX(hud.bounds), 0.5f);
+        XCTAssertEqualWithAccuracy(hud.bezelView.center.y, CGRectGetMidY(hud.bounds), 0.5f);
+    }
+
+    [hud hideAnimated:NO];
+}
+
+- (void)testHUDTracksSceneRotation {
+    XCTAssertTrue(NSThread.isMainThread);
+    UIView *rootView = [self hostRootView];
+    UIWindow *window = rootView.window;
+    UIWindowScene *scene = window.windowScene;
+    XCTAssertNotNil(scene);
+    if (!scene) return;
+
+    NSPredicate *active = [NSPredicate predicateWithBlock:^BOOL(id object, NSDictionary *bindings) {
+        return scene.activationState == UISceneActivationStateForegroundActive &&
+            scene.effectiveGeometry.interfaceOrientation != UIInterfaceOrientationUnknown &&
+            window.rootViewController.transitionCoordinator == nil;
+    }];
+    XCTNSPredicateExpectation *ready = [[XCTNSPredicateExpectation alloc] initWithPredicate:active object:nil];
+    XCTWaiterResult readyResult = [XCTWaiter waitForExpectations:@[ready] timeout:5.f];
+    XCTAssertEqual(readyResult, XCTWaiterResultCompleted);
+    if (readyResult != XCTWaiterResultCompleted) return;
+
+    UIInterfaceOrientation originalOrientation = scene.effectiveGeometry.interfaceOrientation;
+    __block MBProgressHUD *hud = nil;
+    __weak HudTests *weakSelf = self;
+    [self addTeardownBlock:^{
+        [hud removeFromSuperview];
+        [weakSelf rotateWindow:window toOrientation:originalOrientation];
+    }];
+
+    for (UIView *parent in @[rootView, window]) {
+        hud = [MBProgressHUD showHUDAddedTo:parent animated:NO];
+        CGSize portraitSize = CGSizeZero;
+        for (NSNumber *value in @[@(UIInterfaceOrientationPortrait),
+                                  @(UIInterfaceOrientationLandscapeLeft),
+                                  @(UIInterfaceOrientationPortrait)]) {
+            UIInterfaceOrientation orientation = value.integerValue;
+            if (![self rotateWindow:window toOrientation:orientation]) return;
+
+            [parent layoutIfNeeded];
+            [hud layoutIfNeeded];
+            MBTestHUDIsVisible(hud, parent);
+            XCTAssertTrue(CGRectEqualToRect(hud.frame, parent.bounds));
+            XCTAssertTrue(CGRectEqualToRect(hud.backgroundView.frame, hud.bounds));
+            XCTAssertEqualWithAccuracy(hud.bezelView.center.x, CGRectGetMidX(hud.bounds), 0.5f);
+            XCTAssertEqualWithAccuracy(hud.bezelView.center.y, CGRectGetMidY(hud.bounds), 0.5f);
+            if (UIInterfaceOrientationIsPortrait(orientation)) {
+                if (CGSizeEqualToSize(portraitSize, CGSizeZero)) {
+                    portraitSize = window.bounds.size;
+                } else {
+                    XCTAssertEqualWithAccuracy(window.bounds.size.width, portraitSize.width, 0.5f);
+                    XCTAssertEqualWithAccuracy(window.bounds.size.height, portraitSize.height, 0.5f);
+                }
+            } else {
+                XCTAssertEqualWithAccuracy(window.bounds.size.width, portraitSize.height, 0.5f);
+                XCTAssertEqualWithAccuracy(window.bounds.size.height, portraitSize.width, 0.5f);
+            }
+            NSLog(@"Scene rotation: host=%@ orientation=%ld window=%@ HUD=%@", NSStringFromClass(parent.class),
+                  (long)orientation, NSStringFromCGRect(window.bounds), NSStringFromCGRect(hud.frame));
+        }
+        [hud removeFromSuperview];
+        hud = nil;
+    }
+}
+
 - (void)testRoundDeterminate {
-    UIViewController *rootViewController = UIApplication.sharedApplication.windows.firstObject.rootViewController;
-    UIView *rootView = rootViewController.view;
+    UIView *rootView = [self hostRootView];
 
     MBProgressHUD *hud = [[MBProgressHUD alloc] initWithView:rootView];
     hud.mode = MBProgressHUDModeDeterminate;
@@ -164,8 +259,7 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 }
 
 - (void)testRoundAnnularDeterminate {
-    UIViewController *rootViewController = UIApplication.sharedApplication.windows.firstObject.rootViewController;
-    UIView *rootView = rootViewController.view;
+    UIView *rootView = [self hostRootView];
 
     MBProgressHUD *hud = [[MBProgressHUD alloc] initWithView:rootView];
     hud.mode = MBProgressHUDModeAnnularDeterminate;
@@ -180,8 +274,7 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 }
 
 - (void)testDeterminateHorizontalBar {
-    UIViewController *rootViewController = UIApplication.sharedApplication.windows.firstObject.rootViewController;
-    UIView *rootView = rootViewController.view;
+    UIView *rootView = [self hostRootView];
 
     MBProgressHUD *hud = [[MBProgressHUD alloc] initWithView:rootView];
     hud.mode = MBProgressHUDModeDeterminateHorizontalBar;
@@ -199,8 +292,7 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 #pragma mark - Customization
 
 - (void)testEffectViewOrderAfterSettingBlurStyle {
-    UIViewController *rootViewController = UIApplication.sharedApplication.windows.firstObject.rootViewController;
-    UIView *rootView = rootViewController.view;
+    UIView *rootView = [self hostRootView];
 
     MBProgressHUD *hud = [[MBProgressHUD alloc] initWithView:rootView];
 
@@ -218,8 +310,7 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 #pragma mark - Delay
 
 - (void)testDelayedHide {
-    UIViewController *rootViewController = UIApplication.sharedApplication.windows.firstObject.rootViewController;
-    UIView *rootView = rootViewController.view;
+    UIView *rootView = [self hostRootView];
 
     self.hideExpectation = [self expectationWithDescription:@"The hudWasHidden: delegate should have been called."];
 
@@ -250,8 +341,7 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 
 - (void)testDelayedHideDoesNotRace {
     // https://github.com/jdg/MBProgressHUD/issues/503
-    UIViewController *rootViewController = UIApplication.sharedApplication.windows.firstObject.rootViewController;
-    UIView *rootView = rootViewController.view;
+    UIView *rootView = [self hostRootView];
 
     MBProgressHUD *hud = [[MBProgressHUD alloc] initWithView:rootView];
     [rootView addSubview:hud];
@@ -279,8 +369,7 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 #pragma mark - Ruse
 
 - (void)testNonAnimatedHudReuse {
-    UIViewController *rootViewController = UIApplication.sharedApplication.windows.firstObject.rootViewController;
-    UIView *rootView = rootViewController.view;
+    UIView *rootView = [self hostRootView];
 
     MBProgressHUD *hud = [[MBProgressHUD alloc] initWithView:rootView];
     [rootView addSubview:hud];
@@ -298,8 +387,7 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 }
 
 - (void)testUnfinishedHidingAnimation {
-  UIViewController *rootViewController = UIApplication.sharedApplication.windows.firstObject.rootViewController;
-  UIView *rootView = rootViewController.view;
+  UIView *rootView = [self hostRootView];
 
   MBProgressHUD *hud = [MBProgressHUD showHUDAddedTo:rootView animated:NO];
 
@@ -323,8 +411,7 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 }
 
 - (void)testAnimatedImmediateHudReuse {
-    UIViewController *rootViewController = UIApplication.sharedApplication.windows.firstObject.rootViewController;
-    UIView *rootView = rootViewController.view;
+    UIView *rootView = [self hostRootView];
 
     XCTestExpectation *hideExpectation = [self expectationWithDescription:@"The hud should have been hidden."];
 
@@ -352,8 +439,7 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 #pragma mark - Min show time
 
 - (void)testMinShowTime {
-    UIViewController *rootViewController = UIApplication.sharedApplication.windows.firstObject.rootViewController;
-    UIView *rootView = rootViewController.view;
+    UIView *rootView = [self hostRootView];
 
     self.hideExpectation = [self expectationWithDescription:@"The hudWasHidden: delegate should have been called."];
 
@@ -375,9 +461,7 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
         checkedAfterOneSecond = YES;
     });
 
-    weakify(self);
     self.hideChecks = ^{
-        strongify(self);
         XCTAssertTrue(checkedAfterOneSecond);
     };
 
@@ -389,8 +473,7 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 #pragma mark - Grace time
 
 - (void)testGraceTime {
-    UIViewController *rootViewController = UIApplication.sharedApplication.windows.firstObject.rootViewController;
-    UIView *rootView = rootViewController.view;
+    UIView *rootView = [self hostRootView];
 
     self.hideExpectation = [self expectationWithDescription:@"The hudWasHidden: delegate should have been called."];
 
@@ -430,8 +513,7 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 }
 
 - (void)testHideBeforeGraceTimeElapsed {
-    UIViewController *rootViewController = UIApplication.sharedApplication.windows.firstObject.rootViewController;
-    UIView *rootView = rootViewController.view;
+    UIView *rootView = [self hostRootView];
 
     self.hideExpectation = [self expectationWithDescription:@"The hudWasHidden: delegate should have been called."];
 
@@ -474,8 +556,7 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 #pragma mark - Customization
 
 - (void)testShape {
-    UIViewController *rootViewController = UIApplication.sharedApplication.windows.firstObject.rootViewController;
-    UIView *rootView = rootViewController.view;
+    UIView *rootView = [self hostRootView];
 
     MBProgressHUD *hud = [[MBProgressHUD alloc] initWithView:rootView];
     hud.removeFromSuperViewOnHide = YES;
@@ -508,18 +589,119 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 
 #pragma mark - Helpers
 
+- (BOOL)rotateWindow:(UIWindow *)window toOrientation:(UIInterfaceOrientation)orientation {
+    UIWindowScene *scene = window.windowScene;
+    UIViewController *controller = window.rootViewController;
+    XCTestExpectation *settled = [[XCTestExpectation alloc] initWithDescription:@"The scene must reach a stable target orientation."];
+    __block NSError *requestError = nil;
+    __block BOOL finished = NO;
+    __block BOOL transitionPending = NO;
+    __block BOOL transitionCancelled = NO;
+    __block id<UIViewControllerTransitionCoordinator> observedCoordinator = nil;
+    __block NSArray<NSValue *> *previousGeometry = nil;
+    __block NSUInteger stableSamples = 0;
+
+    UIWindowSceneGeometryPreferencesIOS *preferences = [[UIWindowSceneGeometryPreferencesIOS alloc]
+        initWithInterfaceOrientations:(UIInterfaceOrientationMask)(1UL << orientation)];
+    [scene requestGeometryUpdateWithPreferences:preferences errorHandler:^(NSError *error) {
+        if (finished) return;
+        requestError = error;
+        finished = YES;
+        [settled fulfill];
+    }];
+    NSTimer *timer = [NSTimer scheduledTimerWithTimeInterval:0.05 repeats:YES block:^(NSTimer *timer) {
+        if (finished) return;
+        id<UIViewControllerTransitionCoordinator> coordinator = controller.transitionCoordinator;
+        if (!coordinator && [controller isKindOfClass:UINavigationController.class]) {
+            coordinator = ((UINavigationController *)controller).visibleViewController.transitionCoordinator;
+        }
+        if (coordinator && coordinator != observedCoordinator) {
+            observedCoordinator = coordinator;
+            transitionPending = [coordinator animateAlongsideTransition:nil completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+                if (finished) return;
+                transitionPending = NO;
+                transitionCancelled = context.isCancelled;
+            }];
+            stableSamples = 0;
+        }
+        [window layoutIfNeeded];
+        [controller.view layoutIfNeeded];
+        NSArray<NSValue *> *geometry = @[[NSValue valueWithCGRect:window.bounds],
+                                         [NSValue valueWithCGRect:controller.view.bounds]];
+        if (scene.activationState == UISceneActivationStateForegroundActive &&
+            scene.effectiveGeometry.interfaceOrientation == orientation && !transitionPending &&
+            window.bounds.size.width > 0.f && window.bounds.size.height > 0.f &&
+            [geometry isEqualToArray:previousGeometry]) {
+            stableSamples++;
+        } else {
+            stableSamples = 0;
+        }
+        previousGeometry = geometry;
+        if (stableSamples >= 3) {
+            finished = YES;
+            [settled fulfill];
+        }
+    }];
+    XCTWaiterResult result = [XCTWaiter waitForExpectations:@[settled] timeout:5.f];
+    finished = YES;
+    [timer invalidate];
+    XCTAssertNil(requestError, @"Scene request failed: %@", requestError);
+    XCTAssertEqual(result, XCTWaiterResultCompleted, @"Target=%ld actual=%ld window=%@", (long)orientation,
+                   (long)scene.effectiveGeometry.interfaceOrientation, NSStringFromCGRect(window.bounds));
+    XCTAssertFalse(transitionCancelled);
+    return result == XCTWaiterResultCompleted && requestError == nil && !transitionCancelled;
+}
+
+- (UIView *)hostRootView {
+    __block UIView *rootView = nil;
+    NSPredicate *predicate = [NSPredicate predicateWithBlock:^BOOL(id object, NSDictionary *bindings) {
+        for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+            if (![scene isKindOfClass:[UIWindowScene class]] ||
+                ![scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication] ||
+                (scene.activationState != UISceneActivationStateForegroundActive &&
+                 scene.activationState != UISceneActivationStateForegroundInactive) ||
+                ![scene.delegate isKindOfClass:[MBHudDemoSceneDelegate class]]) {
+                continue;
+            }
+            UIWindow *window = ((MBHudDemoSceneDelegate *)scene.delegate).window;
+            if (window.windowScene == scene && !window.hidden && window.rootViewController) {
+                rootView = window.rootViewController.view;
+                return YES;
+            }
+        }
+        return NO;
+    }];
+    XCTNSPredicateExpectation *expectation = [[XCTNSPredicateExpectation alloc] initWithPredicate:predicate object:nil];
+    XCTWaiterResult result = [XCTWaiter waitForExpectations:@[expectation] timeout:5.f];
+    XCTAssertEqual(result, XCTWaiterResultCompleted, @"The Demo scene must provide a visible host window.");
+    XCTAssertNotNil(rootView);
+    return rootView;
+}
+
+- (void)testSubviewLookup {
+    UIView *rootView = [UIView new];
+    XCTAssertNil([self view:rootView firstSubviewOfClass:[UILabel class]]);
+
+    UIView *container = [UIView new];
+    [rootView addSubview:container];
+    XCTAssertNil([self view:rootView firstSubviewOfClass:[UILabel class]]);
+
+    UILabel *label = [UILabel new];
+    [container addSubview:label];
+    XCTAssertEqual([self view:rootView firstSubviewOfClass:[UILabel class]], label);
+}
+
 - (nullable UIView *)view:(UIView *)view firstSubviewOfClass:(Class)clazz {
-    for (__unsafe_unretained UIView *subview in view.subviews) {
+    for (UIView *subview in view.subviews) {
         if ([subview isKindOfClass:clazz]) {
             return subview;
         }
     }
-    __unsafe_unretained UIView *theView;
-    for (__unsafe_unretained UIView *subview in view.subviews) {
-        theView = [self view:subview firstSubviewOfClass:clazz];
-        if (theView) { break; }
+    for (UIView *subview in view.subviews) {
+        UIView *theView = [self view:subview firstSubviewOfClass:clazz];
+        if (theView) { return theView; }
     }
-    return theView;
+    return nil;
 }
 
 @end

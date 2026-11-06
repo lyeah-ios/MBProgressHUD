@@ -26,3 +26,7 @@ profile
 
 # Carthage
 Carthage/Build
+
+.h*/
+.u*/
+/AGENTS.md
