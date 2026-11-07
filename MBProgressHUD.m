@@ -160,6 +160,11 @@ static const CGFloat MBDefaultDetailsLabelFontSize = 12.f;
 
 #pragma mark - Show & hide
 
+- (BOOL)isVisible {
+    MBMainThreadAssert();
+    return self.superview != nil && !self.hidden && self.alpha > 0.f;
+}
+
 - (void)showAnimated:(BOOL)animated {
     MBMainThreadAssert();
     [self.minShowTimer invalidate];

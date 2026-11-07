@@ -93,6 +93,133 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
 
 @implementation HudTests
 
+#pragma mark - Visibility
+
+- (void)testVisibleReflectsAlphaHiddenAndSuperview {
+    UIView *host = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 480)];
+    MBProgressHUD *hud = [[MBProgressHUD alloc] initWithView:host];
+    XCTAssertFalse(hud.visible);
+    [host addSubview:hud];
+    XCTAssertFalse(hud.visible);
+
+    [hud showAnimated:NO];
+    hud.alpha = 0.5f;
+    XCTAssertTrue(hud.visible);
+    hud.hidden = YES;
+    XCTAssertFalse(hud.visible);
+    hud.hidden = NO;
+    XCTAssertTrue(hud.visible);
+    hud.alpha = 0.f;
+    XCTAssertFalse(hud.visible);
+    hud.alpha = 1.f;
+    XCTAssertTrue(hud.visible);
+    [hud removeFromSuperview];
+    XCTAssertFalse(hud.visible);
+    [host addSubview:hud];
+    XCTAssertTrue(hud.visible);
+    [hud removeFromSuperview];
+}
+
+- (void)testVisibleDuringGraceAndMinimumShowTime {
+    UIView *host = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 480)];
+    MBProgressHUD *hud = [[MBProgressHUD alloc] initWithView:host];
+    [host addSubview:hud];
+    hud.graceTime = 0.2;
+    hud.minShowTime = 1.f;
+    [hud showAnimated:NO];
+    XCTAssertFalse(hud.visible);
+    XCTAssertEqual(hud.alpha, 0.f);
+
+    XCTestExpectation *shown = [self expectationWithDescription:@"Grace time completes"];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        XCTAssertTrue(hud.visible);
+        [hud hideAnimated:NO];
+        XCTAssertTrue(hud.visible);
+        [shown fulfill];
+    });
+    [self waitForExpectationsWithTimeout:2.f handler:nil];
+
+    XCTestExpectation *hidden = [self expectationWithDescription:@"Minimum show time completes"];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        XCTAssertFalse(hud.visible);
+        XCTAssertEqual(hud.alpha, 0.f);
+        [hidden fulfill];
+    });
+    [self waitForExpectationsWithTimeout:2.f handler:nil];
+
+    [hud showAnimated:NO];
+    XCTAssertFalse(hud.visible);
+    [hud hideAnimated:NO];
+    XCTAssertFalse(hud.visible);
+    [hud removeFromSuperview];
+}
+
+- (void)testVisibleDuringDefaultHideAnimationAndCleanup {
+    UIView *host = [self hostRootView];
+    MBProgressHUD *hud = [[MBProgressHUD alloc] initWithView:host];
+    [host addSubview:hud];
+    XCTestExpectation *hidden = [self expectationWithDescription:@"Hide animation completes"];
+    __weak MBProgressHUD *weakHUD = hud;
+    hud.completionBlock = ^{
+        XCTAssertFalse(weakHUD.visible);
+        [hidden fulfill];
+    };
+    [hud showAnimated:YES];
+    XCTAssertTrue(hud.visible);
+    [hud hideAnimated:YES];
+    XCTAssertTrue(hud.visible);
+    [self waitForExpectationsWithTimeout:5.f handler:nil];
+    XCTAssertFalse(hud.visible);
+    hud.completionBlock = nil;
+    [hud removeFromSuperview];
+}
+
+- (void)testVisibleWithCustomHideAnimationAndStaleCompletion {
+    UIView *host = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 480)];
+    MBProgressHUD *hud = [[MBProgressHUD alloc] initWithView:host];
+    [host addSubview:hud];
+    __block void (^finishHide)(BOOL) = nil;
+    hud.customHideAnimationBlock = ^(void (^completion)(BOOL), MBProgressHUD *target) {
+        XCTAssertTrue(target.visible);
+        finishHide = [completion copy];
+    };
+    [hud showAnimated:NO];
+    [hud hideAnimated:YES];
+    XCTAssertTrue(hud.visible);
+    XCTAssertNotNil(finishHide);
+    if (!finishHide) return;
+    finishHide(NO);
+    XCTAssertFalse(hud.visible);
+    XCTAssertEqual(hud.alpha, 0.f);
+
+    [hud showAnimated:NO];
+    [hud hideAnimated:YES];
+    void (^oldFinishHide)(BOOL) = finishHide;
+    [hud showAnimated:NO];
+    XCTAssertTrue(hud.visible);
+    oldFinishHide(YES);
+    XCTAssertTrue(hud.visible);
+    XCTAssertEqual(hud.alpha, 1.f);
+    [hud hideAnimated:YES];
+    XCTAssertTrue(hud.visible);
+    finishHide(YES);
+    XCTAssertFalse(hud.visible);
+    XCTAssertEqual(hud.alpha, 0.f);
+
+    [hud showAnimated:NO];
+    [hud hideAnimated:YES];
+    oldFinishHide = finishHide;
+    [hud showAnimated:NO];
+    [hud hideAnimated:YES];
+    XCTAssertTrue(hud.visible);
+    oldFinishHide(YES);
+    XCTAssertFalse(hud.visible);
+    XCTAssertEqual(hud.alpha, 0.f);
+    finishHide(YES);
+    hud.customHideAnimationBlock = nil;
+    [hud removeFromSuperview];
+}
+
 - (void)testCustomAnimationsAndReuse {
     UIView *host = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 480)];
     MBProgressHUD *hud = [[MBProgressHUD alloc] initWithView:host];
@@ -123,14 +250,17 @@ XCTAssertNil(hud.superview, @"The HUD should not have a superview."); \
     [hud hideAnimated:YES];
     XCTAssertEqual(hides, 1u);
     XCTAssertEqual(completions, 1u);
+    XCTAssertTrue(hud.visible);
     finishHide(YES);
     XCTAssertEqual(completions, 2u);
     XCTAssertEqual(hud.alpha, 0.f);
+    XCTAssertFalse(hud.visible);
     [hud showAnimated:YES];
     hud.customHideAnimationBlock = ^(void (^completion)(BOOL), MBProgressHUD *target) { completion(NO); };
     [hud hideAnimated:YES];
     XCTAssertEqual(completions, 3u);
     XCTAssertEqual(hud.alpha, 0.f);
+    XCTAssertFalse(hud.visible);
     hud.completionBlock = nil;
     [hud removeFromSuperview];
 }

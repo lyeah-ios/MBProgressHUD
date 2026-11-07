@@ -191,6 +191,16 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)hideAnimated:(BOOL)animated afterDelay:(NSTimeInterval)delay;
 
 /**
+ * Whether the HUD has a superview, is not hidden, and has an alpha greater than zero.
+ * Query on the main thread. This uses the HUD's model-layer properties, which may differ
+ * from its appearance during animations.
+ *
+ * This does not account for window attachment, ancestor visibility or alpha, occlusion,
+ * or the visual state of the HUD's subviews.
+ */
+@property (assign, nonatomic, readonly, getter=isVisible) BOOL visible;
+
+/**
  * The HUD delegate object. Receives HUD state notifications.
  */
 @property (weak, nonatomic) id<MBProgressHUDDelegate> delegate;
